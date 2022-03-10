@@ -160,11 +160,11 @@ namespace Silky.Swagger.SwaggerGen.SwaggerGenerator
         {
             var responses = new OpenApiResponses();
             var allResponseCodes = ResponsesCodeHelper.GetAllCodes();
-            // foreach (var responseCode in allResponseCodes)
-            // {
-            //     responses.Add(((int)responseCode.Key).ToString(), GenerateResponse(serviceEntry, schemaRepository, responseCode));
-            // }
-            responses.Add(((int)ResponsesCode.Success).ToString(), GenerateResponse(serviceEntry, schemaRepository));
+            foreach (var responseCode in allResponseCodes)
+            {
+                responses.Add(((int)responseCode.Key).ToString(), GenerateResponse(serviceEntry, schemaRepository, responseCode));
+            }
+            // responses.Add(((int)ResponsesCode.Success).ToString(), GenerateResponse(serviceEntry, schemaRepository));
             return responses;
         }
 
@@ -206,7 +206,7 @@ namespace Silky.Swagger.SwaggerGen.SwaggerGenerator
                     Description = description,
                     Content = responseContentTypes.ToDictionary(
                         contentType => contentType,
-                        contentType => CreateResponseMediaType(typeof(string), schemaRepository)
+                        contentType => new OpenApiMediaType()
                     )
                 };
             }
@@ -363,7 +363,7 @@ namespace Silky.Swagger.SwaggerGen.SwaggerGenerator
                         contentType => contentType,
                         contentType => new OpenApiMediaType
                         {
-                            Schema = schema
+                            Schema = schema,
                         }
                     ),
                 Required = isRequired
@@ -472,7 +472,7 @@ namespace Silky.Swagger.SwaggerGen.SwaggerGenerator
                                  || apiParameter.Type.GetCustomAttributes().Any(attr =>
                                      RequiredAttributeTypes.Contains(attr.GetType()));
 
-                var schema = GenerateSchema(apiParameter.Type, schemaRespository, propertyInfo, null);
+                var schema = GenerateSchema(apiParameter.Type, schemaRespository, propertyInfo, apiParameter.ParameterInfo);
                 var parameter = new OpenApiParameter
                 {
                     Name = name,

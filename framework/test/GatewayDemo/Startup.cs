@@ -35,11 +35,13 @@ namespace GatewayDemo
             // services.AddMvc();
             // services.AddSilkyHttpCore();
             // services.AddTransient<IAuthorizationHandler, TestAuthorizationHandlerBase>();
-            services.AddSilkyHttpServices();
-            services.AddSingleton<IAuthorizationHandler, TestAuthorizationHandler>();
+            services.AddSilkySkyApm();
+            services.AddSilkyHttpServices<TestAuthorizationHandler>();
+            services.AddSilkyIdentity();
             services.AddMessagePackCodec();
             services.AddHealthChecks()
-                .AddSilkyRpc();
+                .AddSilkyRpc()
+                .AddSilkyGateway();
             services
                 .AddHealthChecksUI()
                 .AddInMemoryStorage();
@@ -55,10 +57,11 @@ namespace GatewayDemo
                 app.UseMiniProfiler();
             }
 
-            app.UseSerilogRequestLogging();
+            //  app.UseSerilogRequestLogging();
             app.UseDashboard();
-            // app.UseSilkyRpcHealthCheck()
-            //     .UseHealthChecksPrometheusExporter("/metrics");
+            app.UseSilkyRpcHealthCheck()
+                .UseSilkyGatewayHealthCheck()
+                .UseHealthChecksPrometheusExporter("/metrics");
 
             app.UseRouting();
             // app.UseClientRateLimiting();
@@ -66,13 +69,13 @@ namespace GatewayDemo
             app.UseResponseCaching();
             app.UseHttpsRedirection();
             app.UseSilkyWebSocketsProxy();
-            app.UseSilkyWrapperResponse();
+           // app.UseSilkyWrapperResponse();
             app.UseSilkyIdentity();
             app.UseSilkyHttpServer();
-            app.UseAuditing();
+           // app.UseAuditing();
             app.UseEndpoints(endpoints =>
             {
-               // endpoints.MapHealthChecksUI();
+                endpoints.MapHealthChecksUI();
                 endpoints.MapSilkyRpcServices();
             });
         }

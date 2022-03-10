@@ -45,15 +45,17 @@ healthChecksUI:
   healthChecks:
     - name: silkyrpc
       uri: http://127.0.0.1:5002/silkyrpc/healthz
+    - name: silkygateway
+      uri: http://127.0.0.1:5002/silkygateway/healthz
   evaluationTimeinSeconds: 30
   minimumSecondsBetweenFailureNotifications: 60
-governance:
-  timeoutMillSeconds: 0
+#governance:
+#  timeoutMillSeconds: 0
 dashboard:
   displayWebApiInSwagger: true
   useAuth: true
-  wrapperResponse: true
-  dashboardLoginApi: /api/account/login
+#  wrapperResponse: true
+#  dashboardLoginApi: /api/account/login
   externalLinks:
     - title: "message.swagger"
       path: "http://localhost:5002"
@@ -70,11 +72,11 @@ dashboard:
       path: "http://localhost:5002/healthchecks-ui"
 serilog:
   minimumLevel:
-    default: Debug
+    default: Information
     override:
-      Microsoft: Warning
+      Microsoft: Information
       Microsoft.Hosting.Lifetime: Information
-      Silky.Rpc: Debug
+      Silky.Rpc: Information
   writeTo:
     - name: File
       args:

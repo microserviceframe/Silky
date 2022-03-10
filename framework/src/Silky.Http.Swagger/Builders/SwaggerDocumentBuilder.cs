@@ -102,7 +102,7 @@ namespace Silky.Http.Swagger.Builders
             // 配置路由模板
             swaggerOptions.RouteTemplate = RouteTemplate;
         }
-
+        
         public static void BuildUI(SwaggerUIOptions swaggerUIOptions, SwaggerDocumentOptions swaggerDocumentOptions)
         {
             // 配置分组终点路由
@@ -123,7 +123,6 @@ namespace Silky.Http.Swagger.Builders
             // 文档展开设置
             swaggerUIOptions.DocExpansion(swaggerDocumentOptions.DocExpansionState);
         }
-
         private static void AddDefaultInterceptor(SwaggerUIOptions swaggerUIOptions)
         {
             // 配置多语言和自动登录token
@@ -269,5 +268,7 @@ namespace Silky.Http.Swagger.Builders
                 options.SwaggerEndpoint(routeTemplate, documentGroup);
             }
         }
+        
+        
     }
 }

@@ -99,11 +99,12 @@ namespace Silky.DotNetty
                 targetHost = tlsCertificate.GetNameInfo(X509NameType.DnsName, false);
             }
 
+            var workerGroup = new SingleThreadEventLoop();
             bootstrap
                 .Channel<TcpSocketChannel>()
                 .Option(ChannelOption.ConnectTimeout, TimeSpan.FromMilliseconds(_rpcOptions.ConnectTimeout))
                 .Option(ChannelOption.TcpNodelay, true)
-                .Option(ChannelOption.SoKeepalive, true)
+                .Option(ChannelOption.RcvbufAllocator, new AdaptiveRecvByteBufAllocator())
                 .Option(ChannelOption.Allocator, PooledByteBufferAllocator.Default)
                 .Group(group)
                 .Handler(new ActionChannelInitializer<ISocketChannel>(c =>
@@ -117,16 +118,18 @@ namespace Silky.DotNetty
                                 new ClientTlsSettings(targetHost)));
                     }
 
-                    pipeline.AddLast(new LengthFieldPrepender(8));
-                    pipeline.AddLast(new LengthFieldBasedFrameDecoder(int.MaxValue, 0, 8, 0, 8));
+                    pipeline.AddLast(new LengthFieldPrepender(4));
+                    pipeline.AddLast(new LengthFieldBasedFrameDecoder(int.MaxValue, 0, 4, 0, 4));
                     if (_governanceOptions.EnableHeartbeat && _governanceOptions.HeartbeatWatchIntervalSeconds > 0)
                     {
-                        pipeline.AddLast(new IdleStateHandler(_governanceOptions.HeartbeatWatchIntervalSeconds * 2, 0,
+                       
+                        pipeline.AddLast(new IdleStateHandler(
+                            _governanceOptions.HeartbeatWatchIntervalSeconds * 2, 0,
                             0));
                         pipeline.AddLast(new ChannelInboundHandlerAdapter());
                     }
 
-                    pipeline.AddLast(new TransportMessageChannelHandlerAdapter(_transportMessageDecoder));
+                    pipeline.AddLast(workerGroup, new TransportMessageChannelHandlerAdapter(_transportMessageDecoder));
                 }));
             return bootstrap;
         }

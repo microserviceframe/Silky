@@ -82,8 +82,11 @@ namespace Silky.DotNetty.Protocol.Tcp
                 tlsCertificate = new X509Certificate2(GetCertificateFile(), _rpcOptions.SslCertificatePassword);
             }
 
+            var workerGroup = new SingleThreadEventLoop();
             bootstrap
                 .Option(ChannelOption.SoBacklog, _rpcOptions.SoBacklog)
+                .Option(ChannelOption.TcpNodelay, true)
+                .Option(ChannelOption.RcvbufAllocator, new AdaptiveRecvByteBufAllocator())
                 .ChildOption(ChannelOption.Allocator, PooledByteBufferAllocator.Default)
                 .Group(m_bossGroup, m_workerGroup)
                 .ChildHandler(new ActionChannelInitializer<IChannel>(channel =>
@@ -94,23 +97,23 @@ namespace Silky.DotNetty.Protocol.Tcp
                         pipeline.AddLast("tls", TlsHandler.Server(tlsCertificate));
                     }
 
-                    pipeline.AddLast(new LengthFieldPrepender(8));
-                    pipeline.AddLast(new LengthFieldBasedFrameDecoder(int.MaxValue, 0, 8, 0, 8));
+                    pipeline.AddLast(new LengthFieldPrepender(4));
+                    pipeline.AddLast(new LengthFieldBasedFrameDecoder(int.MaxValue, 0, 4, 0, 4));
                     if (_governanceOptions.EnableHeartbeat && _governanceOptions.HeartbeatWatchIntervalSeconds > 0)
                     {
-                        pipeline.AddLast(new IdleStateHandler(0, _governanceOptions.HeartbeatWatchIntervalSeconds, 0));
+                        pipeline.AddLast(
+                            new IdleStateHandler(0, _governanceOptions.HeartbeatWatchIntervalSeconds, 0));
                         pipeline.AddLast(
                             new ChannelInboundHandlerAdapter(EngineContext.Current.Resolve<IRpcEndpointMonitor>()));
                     }
 
-                    pipeline.AddLast(new TransportMessageChannelHandlerAdapter(_transportMessageDecoder));
-
-                    pipeline.AddLast(new ServerHandler((channelContext, message) =>
+                    pipeline.AddLast(workerGroup, new TransportMessageChannelHandlerAdapter(_transportMessageDecoder));
+                    pipeline.AddLast(workerGroup, new ServerHandler(async (channelContext, message) =>
                     {
                         if (message.IsInvokeMessage())
                         {
                             var sender = new DotNettyTcpServerMessageSender(channelContext);
-                            OnReceived(sender, message);
+                            await OnReceived(sender, message);
                         }
                     }));
                 }));

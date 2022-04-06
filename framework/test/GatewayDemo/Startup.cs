@@ -1,11 +1,14 @@
+using System.IO.Compression;
+using System.Linq;
 using GatewayDemo.Authorization;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Serilog;
+using Silky.Http.Core.Middlewares;
+
 
 namespace GatewayDemo
 {
@@ -42,6 +45,20 @@ namespace GatewayDemo
             services.AddHealthChecks()
                 .AddSilkyRpc()
                 .AddSilkyGateway();
+
+            services.Configure<GzipCompressionProviderOptions>(options => options.Level = CompressionLevel.Fastest);
+            services.AddResponseCompression(options =>
+            {
+                options.Providers.Add<GzipCompressionProvider>();
+                // options.Providers.Add<CustomCompressionProvider>();
+                // .Append(TItem) is only available on Core.
+                options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(new[] { "image/svg+xml" });
+
+                ////Example of using excluded and wildcard MIME types:
+                ////Compress all MIME types except various media types, but do compress SVG images.
+                //options.MimeTypes = new[] { "*/*", "image/svg+xml" };
+                //options.ExcludedMimeTypes = new[] { "image/*", "audio/*", "video/*" };
+            });
             services
                 .AddHealthChecksUI()
                 .AddInMemoryStorage();
@@ -68,11 +85,11 @@ namespace GatewayDemo
             // app.UseIpRateLimiting();
             app.UseResponseCaching();
             app.UseHttpsRedirection();
-            app.UseSilkyWebSocketsProxy();
-            app.UseSilkyWrapperResponse();
             app.UseSilkyIdentity();
-            app.UseSilkyHttpServer();
-           // app.UseAuditing();
+            app.UseSilkyWebSocketsProxy();
+            app.UseSilkyWebServer();
+            // app.UseSilkyWrapperResponse();
+            // app.UseAuditing();
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapHealthChecksUI();

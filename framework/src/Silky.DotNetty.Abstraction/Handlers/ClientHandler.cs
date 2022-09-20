@@ -12,7 +12,8 @@ namespace Silky.DotNetty.Handlers
         private readonly IMessageListener _messageListener;
         private readonly IRpcEndpointMonitor _rpcEndpointMonitor;
 
-        public ClientHandler(IMessageListener messageListener, IRpcEndpointMonitor rpcEndpointMonitor)
+        public ClientHandler(IMessageListener messageListener,
+            IRpcEndpointMonitor rpcEndpointMonitor)
         {
             _messageListener = messageListener;
             _rpcEndpointMonitor = rpcEndpointMonitor;
@@ -31,17 +32,6 @@ namespace Silky.DotNetty.Handlers
             {
                 _rpcEndpointMonitor.RemoveRpcEndpoint(remoteAddress.Address.MapToIPv4(), remoteAddress.Port);
             }
-        }
-
-        public override async Task CloseAsync(IChannelHandlerContext context)
-        {
-            var remoteAddress = context.Channel.RemoteAddress as IPEndPoint;
-            if (remoteAddress != null)
-            {
-                _rpcEndpointMonitor.RemoveRpcEndpoint(remoteAddress.Address.MapToIPv4(), remoteAddress.Port);
-            }
-
-            await base.CloseAsync(context);
         }
     }
 }

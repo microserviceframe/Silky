@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Threading.Tasks;
+using DotNetty.Transport.Channels;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -10,6 +12,7 @@ using Silky.DotNetty.Abstraction;
 using Silky.Rpc.Configuration;
 using Silky.Rpc.Endpoint;
 using Silky.Rpc.Endpoint.Monitor;
+using Silky.Rpc.Runtime;
 using Silky.Rpc.Runtime.Client;
 using Silky.Rpc.Transport;
 
@@ -24,8 +27,9 @@ namespace Silky.DotNetty
         private readonly SilkyChannelPoolMap _silkyChannelPoolMap;
         private readonly IChannelProvider _channelProvider;
 
+        private readonly IMessageListener _clientMessageListener;
 
-        private ConcurrentDictionary<IRpcEndpoint, DefaultTransportClient> m_clients = new();
+        private ConcurrentDictionary<ISilkyEndpoint, ITransportClient> m_clients = new();
 
         public DotNettyTransportClientFactory(IRpcEndpointMonitor rpcEndpointMonitor,
             SilkyChannelPoolMap silkyChannelPoolMap,
@@ -36,35 +40,45 @@ namespace Silky.DotNetty
             _silkyChannelPoolMap = silkyChannelPoolMap;
             _channelProvider = channelProvider;
             _rpcOptions = rpcOptions.Value;
+            _clientMessageListener = new ClientMessageListener();
             Logger = NullLogger<DotNettyTransportClientFactory>.Instance;
         }
 
 
-        public async Task<ITransportClient> GetClient(IRpcEndpoint rpcEndpoint)
+        public async Task<ITransportClient> GetClient(ISilkyEndpoint silkyEndpoint)
         {
             try
             {
                 Logger.LogDebug(
-                    $"Ready to create a client for the server rpcEndpoint: {rpcEndpoint.IPEndPoint}.");
+                    $"Ready to create a client for the server rpcEndpoint: {silkyEndpoint.IPEndPoint}.");
 
-                if (!m_clients.TryGetValue(rpcEndpoint, out var client))
+                if (!m_clients.TryGetValue(silkyEndpoint, out var client))
                 {
-                    var messageListener = new ClientMessageListener();
                     if (_rpcOptions.UseTransportClientPool)
                     {
-                        var pool = _silkyChannelPoolMap.Get(rpcEndpoint);
+                        var pool = _silkyChannelPoolMap.Get(silkyEndpoint);
                         var messageSender =
-                            new ChannelPoolClientMessageSender(pool, messageListener, _rpcEndpointMonitor,
-                                _rpcOptions.TransportClientPoolNumber);
-                        client = new DefaultTransportClient(messageSender, messageListener);
-                        _ = m_clients.GetOrAdd(rpcEndpoint, client);
+                            new ChannelPoolClientMessageSender(pool, _clientMessageListener, _rpcEndpointMonitor);
+                        client = new DefaultTransportClient(messageSender, _clientMessageListener);
                     }
                     else
                     {
-                        var channel = await _channelProvider.Create(rpcEndpoint, messageListener, _rpcEndpointMonitor);
+                        var channel =
+                            await _channelProvider.Create(silkyEndpoint, _clientMessageListener, _rpcEndpointMonitor);
                         var messageSender = new DotNettyClientMessageSender(channel);
-                        client = new DefaultTransportClient(messageSender, messageListener);
+                        client = new DefaultTransportClient(messageSender, _clientMessageListener);
                     }
+
+                    _ = m_clients.TryAdd(silkyEndpoint, client);
+                    return client;
+                }
+
+                if (_rpcOptions.UseTransportClientPool)
+                {
+                    var pool = _silkyChannelPoolMap.Get(silkyEndpoint);
+                    var messageSender =
+                        new ChannelPoolClientMessageSender(pool, _clientMessageListener, _rpcEndpointMonitor);
+                    client.MessageSender = messageSender;
                 }
 
                 return client;

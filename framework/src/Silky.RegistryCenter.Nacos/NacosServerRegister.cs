@@ -38,14 +38,14 @@ namespace Silky.RegistryCenter.Nacos
             _nacosRegistryCenterOptions = nacosRegistryCenterOptions.CurrentValue;
         }
 
-        protected override async Task RemoveRpcEndpoint(string hostName, IRpcEndpoint rpcEndpoint)
+        protected override async Task RemoveRpcEndpoint(string hostName, ISilkyEndpoint silkyEndpoint)
         {
             var serverInstances = await _nacosNamingService.GetAllInstances(hostName);
 
             var unHealthInstance = serverInstances.FirstOrDefault(p => p.ServiceName == hostName
-                                                                       && p.Ip == rpcEndpoint.Host
+                                                                       && p.Ip == silkyEndpoint.Host
                                                                        && p.GetServiceProtocolInfos()
-                                                                           .ContainsKey(rpcEndpoint.ServiceProtocol));
+                                                                           .ContainsKey(silkyEndpoint.ServiceProtocol));
             if (unHealthInstance != null)
             {
                 await _nacosNamingService.DeregisterInstance(hostName, unHealthInstance);
@@ -67,7 +67,7 @@ namespace Silky.RegistryCenter.Nacos
             {
                 var serverListener = new ServerListener(this);
                 m_serverListeners.TryAdd(serverName, serverListener);
-                await _nacosNamingService.Subscribe(serverName, _nacosRegistryCenterOptions.GroupName, serverListener);
+                await _nacosNamingService.Subscribe(serverName, _nacosRegistryCenterOptions.ServerGroupName, serverListener);
                 var serverInstances = await _nacosNamingService.GetAllInstances(serverName);
                 await UpdateServer(serverName, serverInstances);
             }
@@ -87,7 +87,7 @@ namespace Silky.RegistryCenter.Nacos
             var instance = serverDescriptor.GetInstance();
             await _nacosNamingService.RegisterInstance(
                 serverDescriptor.HostName,
-                _nacosRegistryCenterOptions.GroupName,
+                _nacosRegistryCenterOptions.ServerGroupName,
                 instance);
             await _serverRegisterProvider.AddServer();
         }

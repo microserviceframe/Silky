@@ -4,21 +4,26 @@ using Silky.Core;
 
 namespace Silky.Rpc.Runtime.Server;
 
-[AttributeUsage(AttributeTargets.Method, AllowMultiple = false)]
+[AttributeUsage(AttributeTargets.Method, AllowMultiple = true)]
 public class UpdateCachingInterceptAttribute : Attribute, IUpdateCachingInterceptProvider
 {
-    public UpdateCachingInterceptAttribute([NotNull] string keyTemplete)
+    public UpdateCachingInterceptAttribute([NotNull] string keyTemplate)
     {
-        Check.NotNullOrEmpty(keyTemplete, nameof(keyTemplete));
-        KeyTemplete = keyTemplete;
+        Check.NotNullOrEmpty(keyTemplate, nameof(keyTemplate));
+        KeyTemplate = keyTemplate;
         OnlyCurrentUserData = false;
         IgnoreMultiTenancy = false;
-        CachingMethod = CachingMethod.Remove;
+        IgnoreWhenCacheKeyNull = true;
+        CachingMethod = CachingMethod.Update;
     }
 
-    public string KeyTemplete { get; }
+    public string KeyTemplate { get; }
 
     public bool OnlyCurrentUserData { get; set; }
     public bool IgnoreMultiTenancy { get; set; }
     public CachingMethod CachingMethod { get; }
+
+    CachingInterceptorDescriptor ICachingInterceptProvider.CachingInterceptorDescriptor { get; set; }
+    
+    public bool IgnoreWhenCacheKeyNull { get; set; }
 }

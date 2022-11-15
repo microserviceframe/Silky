@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using org.apache.zookeeper;
@@ -100,11 +103,15 @@ namespace Silky.Zookeeper.Implementation
         public async Task<T> RetryUntilConnected<T>(Func<Task<T>> callable)
         {
             var operationStartTime = DateTime.Now;
+            T data;
+            var success = false;
             while (true)
             {
                 try
                 {
-                    return await callable();
+                    data = await callable();
+                    success = true;
+                    break;
                 }
                 catch (KeeperException.ConnectionLossException)
                 {
@@ -131,6 +138,13 @@ namespace Silky.Zookeeper.Implementation
                         $"Operation cannot be retried because of retry timeout ({Options.OperatingTimeout.TotalMilliseconds} milli seconds)");
                 }
             }
+
+            if (!success)
+            {
+                throw new Exception("failed to execute callback method for RetryUntilConnected");
+            }
+
+            return data;
         }
 
         /// <summary>
@@ -291,6 +305,18 @@ namespace Silky.Zookeeper.Implementation
 
             var node = GetOrAddNodeEntry(path);
             node.UnSubscribeChildrenChange(listener);
+        }
+
+        public async Task Authorize(AuthScheme authScheme, string auth = "")
+        {
+            await RetryUntilConnected(async () =>
+            {
+                if (authScheme == AuthScheme.Auth || authScheme == AuthScheme.Digest)
+                {
+                    ZooKeeper.addAuthInfo(authScheme.ToString().ToLower(), Encoding.UTF8.GetBytes(auth));
+                }
+                return 0;
+            });
         }
 
         #endregion Public Method

@@ -160,13 +160,13 @@ namespace Silky.Rpc.Monitor.Handle
         {
             if (EngineContext.Current.IsContainDotNettyTcpModule())
             {
-                var localTcpEndpoint = RpcEndpointHelper.GetLocalTcpEndpoint();
+                var localTcpEndpoint = SilkyEndpointHelper.GetLocalRpcEndpoint();
                 await RemoveCache(localTcpEndpoint.GetAddress());
             }
 
             if (EngineContext.Current.IsContainHttpCoreModule())
             {
-                var localWebEndpoint = RpcEndpointHelper.GetLocalWebEndpoint();
+                var localWebEndpoint = SilkyEndpointHelper.GetLocalWebEndpoint();
                 if (localWebEndpoint != null)
                 {
                     await RemoveCache(localWebEndpoint.GetAddress());

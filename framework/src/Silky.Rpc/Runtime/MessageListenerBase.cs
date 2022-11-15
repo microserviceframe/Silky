@@ -8,12 +8,15 @@ namespace Silky.Rpc.Runtime
         public event ReceivedDelegate Received;
 
 
-        public async Task OnReceived(IMessageSender sender, TransportMessage message)
+        public Task OnReceived(IMessageSender sender, TransportMessage message)
         {
             if (Received != null)
             {
-                await Received(sender, message);
+                return Received(sender, message);
             }
+            return Task.CompletedTask;
+            // ThreadPool.QueueUserWorkItem(CallBack, new { Sender = sender, Message = message });
+            // return Task.CompletedTask;
         }
 
         private async void CallBack(object state)

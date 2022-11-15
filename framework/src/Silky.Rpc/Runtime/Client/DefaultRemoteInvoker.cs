@@ -65,20 +65,20 @@ namespace Silky.Rpc.Runtime.Client
 
             RemoteResultMessage invokeResult = null;
             var invokeMonitor = EngineContext.Current.Resolve<IInvokeMonitor>();
-            var filters = _clientFilterProvider.GetClientFilters(remoteInvokeMessage.ServiceEntryId);
+
             ClientInvokeInfo clientInvokeInfo = null;
             try
             {
                 clientInvokeInfo =
                     invokeMonitor?.Monitor((remoteInvokeMessage.ServiceEntryId, selectedRpcEndpoint));
-                var client = await _transportClientFactory.GetClient(selectedRpcEndpoint);
+
+                var filters = _clientFilterProvider.GetClientFilters(remoteInvokeMessage.ServiceEntryId);
                 foreach (var filter in filters)
                 {
                     filter.OnActionExecuting(remoteInvokeMessage);
                 }
-
+                var client = await _transportClientFactory.GetClient(selectedRpcEndpoint);
                 invokeResult = await client.SendAsync(remoteInvokeMessage, messageId);
-
                 foreach (var filter in filters)
                 {
                     filter.OnActionExecuted(invokeResult);
@@ -87,14 +87,23 @@ namespace Silky.Rpc.Runtime.Client
             catch (Exception ex)
             {
                 sp.Stop();
-                invokeMonitor?.ExecFail((remoteInvokeMessage.ServiceEntryId, selectedRpcEndpoint),
-                    sp.Elapsed.TotalMilliseconds, clientInvokeInfo);
-
-                Logger.LogException(ex);
                 Logger.LogWithMiniProfiler(MiniProfileConstant.Rpc.Name, MiniProfileConstant.Rpc.State.Fail,
                     $"The rpc request call failed");
                 _clientInvokeDiagnosticListener.TracingError(tracingTimestamp, messageId,
                     remoteInvokeMessage.ServiceEntryId, ex.GetExceptionStatusCode(), ex);
+
+                invokeMonitor?.ExecFail((remoteInvokeMessage.ServiceEntryId, selectedRpcEndpoint),
+                    sp.Elapsed.TotalMilliseconds, clientInvokeInfo);
+
+                if (ex.IsFriendlyException())
+                {
+                    Logger.LogWarning(ex.Message);
+                }
+                else
+                {
+                    Logger.LogException(ex);
+                }
+
                 throw;
             }
 
@@ -109,36 +118,29 @@ namespace Silky.Rpc.Runtime.Client
             return invokeResult;
         }
 
-        private IRpcEndpoint[] FindRpcEndpoint(RemoteInvokeMessage remoteInvokeMessage)
+        private ISilkyEndpoint[] FindRpcEndpoint(RemoteInvokeMessage remoteInvokeMessage)
         {
-            var rpcEndpoints = _serverManager.GetRpcEndpoints(remoteInvokeMessage.ServiceId, ServiceProtocol.Tcp);
-            if (rpcEndpoints == null)
+            var rpcEndpoints = _serverManager.GetRpcEndpoints(remoteInvokeMessage.ServiceId, ServiceProtocol.Rpc);
+            if (rpcEndpoints == null || !rpcEndpoints.Any())
             {
                 throw new NotFindServiceRouteException(
                     $"The service routing could not be found via [{remoteInvokeMessage.ServiceEntryId}]");
             }
 
-            if (!rpcEndpoints.Any(p => p.Enabled))
-            {
-                throw new NotFindServiceRouteAddressException(
-                    $"No available service provider can be found via [{remoteInvokeMessage.ServiceEntryId}]");
-            }
-
             return rpcEndpoints;
         }
 
-        private IRpcEndpoint SelectedRpcEndpoint(IRpcEndpoint[] rpcEndpoints, ShuntStrategy shuntStrategy,
+        private ISilkyEndpoint SelectedRpcEndpoint(ISilkyEndpoint[] rpcEndpoints, ShuntStrategy shuntStrategy,
             string serviceEntryId, string hashKey, out ShuntStrategy confirmedShuntStrategy)
         {
-            var remoteAddress = RpcContext.Context.GetInvokeAttachment(AttachmentKeys.SelectedServerEndpoint)
-                ?.ToString();
-            IRpcEndpoint selectedRpcEndpoint;
+            var remoteAddress = RpcContext.Context.GetInvokeAttachment(AttachmentKeys.SelectedServerEndpoint);
+            ISilkyEndpoint selectedSilkyEndpoint;
             if (remoteAddress != null)
             {
-                selectedRpcEndpoint =
+                selectedSilkyEndpoint =
                     rpcEndpoints.FirstOrDefault(p => p.GetAddress().Equals(remoteAddress) && p.Enabled);
 
-                if (selectedRpcEndpoint == null)
+                if (selectedSilkyEndpoint == null)
                 {
                     throw new NotFindServiceRouteAddressException(
                         $"Server [{serviceEntryId}] does not have a healthy designated service rpcEndpoint [{remoteAddress}]");
@@ -151,7 +153,7 @@ namespace Silky.Rpc.Runtime.Client
                 var addressSelector =
                     EngineContext.Current.ResolveNamed<IRpcEndpointSelector>(shuntStrategy.ToString());
 
-                selectedRpcEndpoint = addressSelector.Select(new RpcEndpointSelectContext(serviceEntryId,
+                selectedSilkyEndpoint = addressSelector.Select(new RpcEndpointSelectContext(serviceEntryId,
                     rpcEndpoints,
                     hashKey));
             }
@@ -164,11 +166,11 @@ namespace Silky.Rpc.Runtime.Client
                 {
                     _serializer.Serialize(rpcEndpoints.Where(p => p.Enabled).Select(p => p.ToString())),
                     Environment.NewLine,
-                    selectedRpcEndpoint.ToString()
+                    selectedSilkyEndpoint.ToString()
                 });
-            RpcContext.Context.SetRcpInvokeAddressInfo(selectedRpcEndpoint.Descriptor);
+            RpcContext.Context.SetRcpInvokeAddressInfo(selectedSilkyEndpoint.Descriptor);
             confirmedShuntStrategy = shuntStrategy;
-            return selectedRpcEndpoint;
+            return selectedSilkyEndpoint;
         }
     }
 }

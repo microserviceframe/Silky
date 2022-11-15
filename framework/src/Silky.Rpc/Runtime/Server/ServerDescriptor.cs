@@ -11,14 +11,14 @@ namespace Silky.Rpc.Runtime.Server
         {
             TimeStamp = DateTimeConverter.DateTimeToUnixTimestamp(DateTime.Now);
             Services = Array.Empty<ServiceDescriptor>();
-            Endpoints = Array.Empty<RpcEndpointDescriptor>();
+            Endpoints = Array.Empty<SilkyEndpointDescriptor>();
         }
 
         public string HostName { get; set; }
 
         public ServiceDescriptor[] Services { get; set; }
 
-        public RpcEndpointDescriptor[] Endpoints { get; set; }
+        public SilkyEndpointDescriptor[] Endpoints { get; set; }
 
         public long TimeStamp { get; set; }
 
@@ -29,9 +29,17 @@ namespace Silky.Rpc.Runtime.Server
             {
                 return false;
             }
+            
+            if (!HostName.Equals(model.HostName))
+            {
+                return false;
+            }
 
-            return Services.All(p => model.Services.Any(q => p == q))
-                   && Endpoints.All(p => model.Endpoints.Any(q => p == q));
+
+            return Services.Length == model.Services.Length
+                   && Services.All(p => model.Services.Any(p.Equals))
+                   && Endpoints.Length == model.Endpoints.Length
+                   && Endpoints.All(p => model.Endpoints.Any(p.Equals));
         }
 
         public static bool operator ==(ServerDescriptor model1, ServerDescriptor model2)

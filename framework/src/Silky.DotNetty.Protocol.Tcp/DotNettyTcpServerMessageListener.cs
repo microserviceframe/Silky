@@ -18,6 +18,7 @@ using Microsoft.Extensions.Options;
 using Silky.Core;
 using Silky.Core.Exceptions;
 using Silky.Core.Logging;
+using Silky.DotNetty.Abstraction;
 using Silky.DotNetty.Handlers;
 using Silky.Rpc.Configuration;
 using Silky.Rpc.Endpoint;
@@ -34,7 +35,7 @@ namespace Silky.DotNetty.Protocol.Tcp
         public ILogger<DotNettyTcpServerMessageListener> Logger { get; set; }
         private readonly RpcOptions _rpcOptions;
         private readonly IHostEnvironment _hostEnvironment;
-        private readonly IRpcEndpoint _hostRpcEndpoint;
+        private readonly ISilkyEndpoint _hostSilkyEndpoint;
         private readonly ITransportMessageDecoder _transportMessageDecoder;
         private readonly ITransportMessageEncoder _transportMessageEncoder;
         private GovernanceOptions _governanceOptions;
@@ -54,7 +55,7 @@ namespace Silky.DotNetty.Protocol.Tcp
             _rpcOptions = rpcOptions.Value;
             _governanceOptions = governanceOptions.CurrentValue;
             governanceOptions.OnChange((options, s) => _governanceOptions = options);
-            _hostRpcEndpoint = RpcEndpointHelper.GetLocalTcpEndpoint();
+            _hostSilkyEndpoint = SilkyEndpointHelper.GetLocalRpcEndpoint();
             if (_rpcOptions.IsSsl)
             {
                 Check.NotNullOrEmpty(_rpcOptions.SslCertificateName, nameof(_rpcOptions.SslCertificateName));
@@ -109,9 +110,7 @@ namespace Silky.DotNetty.Protocol.Tcp
                         pipeline.AddLast(
                             new ChannelInboundHandlerAdapter(EngineContext.Current.Resolve<IRpcEndpointMonitor>()));
                     }
-
-                    pipeline.AddLast(ZlibCodecFactory.NewZlibEncoder(ZlibWrapper.Gzip));
-                    pipeline.AddLast(ZlibCodecFactory.NewZlibDecoder(ZlibWrapper.Gzip));
+                    
                     pipeline.AddLast("encoder", new EncoderHandler(_transportMessageEncoder));
                     pipeline.AddLast("decoder", new DecoderHandler(_transportMessageDecoder));
                     pipeline.AddLast(new ServerHandler(async (channelContext, message) =>
@@ -125,9 +124,9 @@ namespace Silky.DotNetty.Protocol.Tcp
                 }));
             try
             {
-                m_boundChannel = await bootstrap.BindAsync(_hostRpcEndpoint.IPEndPoint);
+                m_boundChannel = await bootstrap.BindAsync(_hostSilkyEndpoint.IPEndPoint);
                 Logger.LogInformation(
-                    "The server listener started successfully, the listening rpcEndpoint: {0}", _hostRpcEndpoint);
+                    "Now Silky RPC server listening on: {0}", _hostSilkyEndpoint.IPEndPoint);
             }
             catch (Exception ex)
             {

@@ -9,6 +9,8 @@ rpc:
 registrycenter:
   connectionStrings: 127.0.0.1:2181,127.0.0.1:2182,127.0.0.1:2183;127.0.0.1:2184,127.0.0.1:2185,127.0.0.1:2186
   type: Zookeeper
+  scheme: Digest
+  auth: "silky:pass4Word"
 #registrycenter:
 #  type: Nacos
 #  namespace: silky
@@ -18,19 +20,14 @@ registrycenter:
 #    - http://127.0.0.1:8850/
 #  userName: nacos
 #  password: nacos
-#  groupName: DEFAULT_GROUP
 #  clusterName: DEFAULT
 #  registerEnabled: true
 #  instanceEnabled: true
-#  namingUseRpc: true
-#appSettings:
-#  services:
-#    - appServiceInterfaceDirectory: ..
-#      appServiceInterfacePattern: I*Application
 
 #registrycenter:
 #  type: Consul
 #  address: http://127.0.0.1:8500
+
 
 distributedCache:
   redis:
@@ -38,8 +35,9 @@ distributedCache:
     configuration: 127.0.0.1:6379,defaultDatabase=0
 allowedHosts: "*"
 swaggerDocument:
-  organizationMode: Group
+  organizationMode: AllAndGroup
   injectMiniProfiler: true
+  showDashboardService: false
   termsOfService: https://www.github.com/liuhll/silky
 gateway:
   jwtSecret: jaoaNPA1fo1rcPfK23iNufsQKkhTy8eh
@@ -55,7 +53,6 @@ governance:
   timeoutMillSeconds: 0
   maxConcurrentHandlingCount: 100
 dashboard:
-  displayWebApiInSwagger: true
   useAuth: true
 #  wrapperResponse: true
 #  dashboardLoginApi: /api/account/login

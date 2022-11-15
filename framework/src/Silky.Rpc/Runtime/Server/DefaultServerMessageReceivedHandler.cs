@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -80,22 +81,34 @@ namespace Silky.Rpc.Runtime.Server
 
                 var parameterResolver =
                     EngineContext.Current.ResolveNamed<IParameterResolver>(message.ParameterType.ToString());
-                
+
                 var parameters = parameterResolver.Parser(serviceEntry, message);
 
                 var result = await serviceEntry.Executor(_serviceKeyExecutor.ServiceKey, parameters);
 
                 remoteResultMessage.Result = result;
-                remoteResultMessage.Status = (int)StatusCode.Success;
                 remoteResultMessage.StatusCode = StatusCode.Success;
             }
             catch (Exception ex)
             {
                 isHandleSuccess = false;
-                context[PollyContextNames.Exception] = ex;
-                remoteResultMessage.Attachments = RpcContext.Context.GetResultAttachments();
-                Logger.LogException(ex);
-                throw;
+                if (ex is ValidationException validationException)
+                {
+                    remoteResultMessage.ValidateErrors = validationException.ValidationErrors.ToArray();
+                }
+
+                if (ex.IsFriendlyException())
+                {
+                    Logger.LogWarning(ex.Message);
+                    remoteResultMessage.ExceptionMessage = ex.Message;
+                    remoteResultMessage.StatusCode = ex.GetExceptionStatusCode();
+                }
+                else
+                {
+                    Logger.LogException(ex);
+                    context[PollyContextNames.Exception] = ex;
+                    throw;
+                }
             }
             finally
             {

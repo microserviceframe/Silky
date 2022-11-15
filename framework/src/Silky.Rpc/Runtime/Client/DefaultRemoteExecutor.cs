@@ -1,8 +1,10 @@
-﻿using System.Collections.Generic;
+﻿using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Polly;
 using Silky.Core.Logging;
 using Silky.Core.MiniProfiler;
 using Silky.Rpc.Endpoint.Selector;
@@ -15,6 +17,10 @@ namespace Silky.Rpc.Runtime.Client
     {
         private readonly IRemoteInvoker _remoteInvoker;
         private readonly IInvokePolicyBuilder _invokePolicyBuilder;
+
+        private ConcurrentDictionary<string, IAsyncPolicy<object>> _policyCaches = new();
+
+
         public ILogger<DefaultRemoteExecutor> Logger { get; set; }
 
         public DefaultRemoteExecutor(IRemoteInvoker remoteInvoker,
@@ -41,9 +47,13 @@ namespace Silky.Rpc.Runtime.Client
                 Logger.LogWithMiniProfiler(MiniProfileConstant.Rpc.Name, MiniProfileConstant.Rpc.State.HashKey,
                     $"The value of hashkey corresponding to this rpc request is:[{hashKey}]");
             }
-
-            var policy = _invokePolicyBuilder.Build(serviceEntry.Id);
-            policy = policy.WrapFallbackPolicy(serviceEntry.Id, parameters);
+            
+            if (!_policyCaches.TryGetValue(serviceEntry.Id, out var policyObject))
+            {
+                policyObject = _invokePolicyBuilder.Build(serviceEntry.Id);
+                _policyCaches.TryAdd(serviceEntry.Id, policyObject);
+            }
+            var policy = policyObject.WrapFallbackPolicy(serviceEntry.Id, parameters);
             var result = await policy
                 .ExecuteAsync(async () =>
                 {
@@ -52,7 +62,6 @@ namespace Silky.Rpc.Runtime.Client
                             hashKey);
                     return invokeResult.GetResult();
                 });
-
             return result;
         }
 
@@ -82,7 +91,7 @@ namespace Silky.Rpc.Runtime.Client
                         await _remoteInvoker.Invoke(remoteInvokeMessage,
                             serviceEntryDescriptor.GovernanceOptions.ShuntStrategy,
                             hashKey);
-                    return invokeResult.Result;
+                    return invokeResult.GetResult();
                 });
 
             return result;
@@ -114,13 +123,14 @@ namespace Silky.Rpc.Runtime.Client
                         await _remoteInvoker.Invoke(remoteInvokeMessage,
                             serviceEntryDescriptor.GovernanceOptions.ShuntStrategy,
                             hashKey);
-                    return invokeResult.Result;
+                    return invokeResult.GetResult();
                 });
 
             return result;
         }
 
-        public async Task<object> Execute(ServiceEntryDescriptor serviceEntryDescriptor, IDictionary<ParameterFrom, object> parameters, string serviceKey = null)
+        public async Task<object> Execute(ServiceEntryDescriptor serviceEntryDescriptor,
+            IDictionary<ParameterFrom, object> parameters, string serviceKey = null)
         {
             var remoteInvokeMessage = new RemoteInvokeMessage()
             {
@@ -145,7 +155,7 @@ namespace Silky.Rpc.Runtime.Client
                         await _remoteInvoker.Invoke(remoteInvokeMessage,
                             serviceEntryDescriptor.GovernanceOptions.ShuntStrategy,
                             hashKey);
-                    return invokeResult.Result;
+                    return invokeResult.GetResult();
                 });
 
             return result;

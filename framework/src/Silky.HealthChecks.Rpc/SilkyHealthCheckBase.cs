@@ -74,7 +74,7 @@ namespace Silky.HealthChecks.Rpc
                 {
                     foreach (var endpoint in server.Endpoints)
                     {
-                        if (HealthCheckType == HealthCheckType.Rpc && endpoint.ServiceProtocol == ServiceProtocol.Tcp)
+                        if (HealthCheckType == HealthCheckType.Rpc && endpoint.ServiceProtocol == ServiceProtocol.Rpc)
                         {
                             var serverHealthData = await GetServerHealthData(endpoint, server.HostName);
                             healthData[endpoint.GetAddress()] = serverHealthData;
@@ -153,7 +153,7 @@ namespace Silky.HealthChecks.Rpc
             }
         }
 
-        private async Task<ServerHealthData> GetServerHealthData(IRpcEndpoint endpoint, string hostName)
+        private async Task<ServerHealthData> GetServerHealthData(ISilkyEndpoint endpoint, string hostName)
         {
             var isHealth = false;
             var endpointHealthData = new ServerHealthData()

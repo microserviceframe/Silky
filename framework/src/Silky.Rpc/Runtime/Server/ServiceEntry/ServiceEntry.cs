@@ -33,6 +33,9 @@ namespace Silky.Rpc.Runtime.Server
 
         public ObjectMethodExecutor MethodExecutor => _methodExecutor;
 
+        public ICollection<CachingInterceptorDescriptor> CachingInterceptorDescriptors =>
+            ServiceEntryDescriptor.CachingInterceptorDescriptors;
+
         [CanBeNull] public ObjectMethodExecutor FallbackMethodExecutor { get; private set; }
         [CanBeNull] public IFallbackProvider FallbackProvider { get; private set; }
 
@@ -77,7 +80,7 @@ namespace Silky.Rpc.Runtime.Server
             {
                 var cachingInterceptorDescriptor = new CachingInterceptorDescriptor()
                 {
-                    KeyTemplete = cachingInterceptorProvider.KeyTemplete,
+                    KeyTemplate = cachingInterceptorProvider.KeyTemplate,
                     OnlyCurrentUserData = cachingInterceptorProvider.OnlyCurrentUserData,
                     IgnoreMultiTenancy = cachingInterceptorProvider.IgnoreMultiTenancy,
                     CachingMethod = cachingInterceptorProvider.CachingMethod,
@@ -88,17 +91,28 @@ namespace Silky.Rpc.Runtime.Server
                 {
                     cachingInterceptorDescriptor.CacheName = removeCachingInterceptProvider.CacheName;
                 }
+                
+                if (cachingInterceptorProvider is IRemoveMatchKeyCachingInterceptProvider removeMatchKeyCachingInterceptProvider)
+                {
+                    cachingInterceptorDescriptor.CacheName = removeMatchKeyCachingInterceptProvider.CacheName;
+                }
+                
+                if (cachingInterceptorProvider is IUpdateCachingInterceptProvider updateCachingInterceptProvider)
+                {
+                    cachingInterceptorDescriptor.IgnoreWhenCacheKeyNull = updateCachingInterceptProvider.IgnoreWhenCacheKeyNull;
+                }
 
                 foreach (var parameterDescriptor in ParameterDescriptors)
                 {
                     foreach (var cacheKey in parameterDescriptor.CacheKeys)
                     {
                         cachingInterceptorDescriptor
-                            .CacheKeyProviders
+                            .CacheKeyProviderDescriptors
                             .Add(new CacheKeyProviderDescriptor()
                             {
                                 PropName = cacheKey.PropName,
                                 Index = cacheKey.Index,
+                                CacheKeyType = cacheKey.CacheKeyType,
                                 ParameterIndex = parameterDescriptor.Index,
                                 From = parameterDescriptor.From,
                                 IsSampleOrNullableType = parameterDescriptor.IsSampleOrNullableType,
@@ -106,6 +120,7 @@ namespace Silky.Rpc.Runtime.Server
                     }
                 }
 
+                cachingInterceptorProvider.CachingInterceptorDescriptor = cachingInterceptorDescriptor;
                 cachingInterceptorDescriptors.Add(cachingInterceptorDescriptor);
             }
 

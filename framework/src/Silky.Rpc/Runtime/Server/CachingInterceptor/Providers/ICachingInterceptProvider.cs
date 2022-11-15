@@ -2,11 +2,13 @@
 
 public interface ICachingInterceptProvider
 {
-    string KeyTemplete { get; }
+    string KeyTemplate { get; }
 
     bool OnlyCurrentUserData { get; set; }
 
     bool IgnoreMultiTenancy { get; set; }
 
     CachingMethod CachingMethod { get; }
+
+    public CachingInterceptorDescriptor CachingInterceptorDescriptor { get; internal set; }
 }

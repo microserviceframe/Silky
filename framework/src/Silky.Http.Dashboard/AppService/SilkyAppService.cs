@@ -9,6 +9,7 @@ using Silky.Core.Exceptions;
 using Silky.Core.Extensions;
 using Silky.Core.Extensions.Collections.Generic;
 using Silky.Core.Runtime.Rpc;
+using Silky.Core.Threading;
 using Silky.HealthChecks.Rpc.ServerCheck;
 using Silky.Http.Dashboard.AppService.Dtos;
 using Silky.Http.Dashboard.Configuration;
@@ -158,7 +159,7 @@ namespace Silky.Http.Dashboard.AppService
 
         private string GetWebSocketProxyAddress()
         {
-            var webEndpoint = RpcEndpointHelper.GetLocalWebEndpoint();
+            var webEndpoint = SilkyEndpointHelper.GetLocalWebEndpoint();
             if (webEndpoint == null)
             {
                 return string.Empty;
@@ -355,7 +356,7 @@ namespace Silky.Http.Dashboard.AppService
                     p =>
                         new ServiceEntryCacheTemplateOutput()
                         {
-                            KeyTemplete = p.KeyTemplete,
+                            KeyTemplate = p.KeyTemplate,
                             OnlyCurrentUserData = p.OnlyCurrentUserData,
                             CachingMethod = p.CachingMethod
                         }).ToArray(),
@@ -390,14 +391,14 @@ namespace Silky.Http.Dashboard.AppService
 
 
             var serviceEntryInstances = serverInstances
-                .Where(p => p.ServiceProtocol == ServiceProtocol.Tcp)
+                .Where(p => p.ServiceProtocol == ServiceProtocol.Rpc)
                 .Select(p =>
                     new GetServiceEntryInstanceOutput()
                     {
                         ServiceEntryId = serviceEntryId,
-                        Address = p.Descriptor.GetHostAddress(),
+                        Address = p.Descriptor.GetAddress(),
                         Enabled = p.Enabled,
-                        IsHealth = _serverHealthCheck.IsHealth(p).GetAwaiter().GetResult(),
+                        IsHealth = AsyncHelper.RunSync(() => _serverHealthCheck.IsHealth(p)),
                         ServiceProtocol = p.ServiceProtocol
                     });
 
@@ -442,7 +443,7 @@ namespace Silky.Http.Dashboard.AppService
 
         private bool IsLocalAddress(string address)
         {
-            var localAddress = RpcEndpointHelper.GetLocalTcpEndpoint().GetAddress();
+            var localAddress = SilkyEndpointHelper.GetLocalRpcEndpoint().GetAddress();
             return localAddress.Equals(address);
         }
 

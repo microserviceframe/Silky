@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using System.Linq;
+﻿using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
@@ -38,6 +37,7 @@ namespace Silky.Rpc
             services.AddDefaultMessageCodec();
             services.AddAuditing(configuration);
             services.TryAddSingleton<IHeartBeatService, DefaultHeartBeatService>();
+            services.TryAddSingleton<IServerProvider, DefaultServerProvider>();
         }
 
         protected override void RegisterServices(ContainerBuilder builder)
@@ -69,36 +69,40 @@ namespace Silky.Rpc
             RegisterServicesForParameterResolver(builder);
         }
 
-        public override async Task Initialize(ApplicationContext applicationContext)
+        public override Task PreInitialize(ApplicationInitializationContext context)
         {
-            if (!applicationContext.IsAddRegistryCenterService(out var registryCenterType))
+            if (!context.IsAddRegistryCenterService(out var registryCenterType))
             {
                 throw new SilkyException(
                     $"You did not specify the dependent {registryCenterType} service registry module");
             }
+            return Task.CompletedTask;
+        }
 
-            var messageListeners = applicationContext.ServiceProvider.GetServices<IServerMessageListener>();
+        public override async Task PostInitialize(ApplicationInitializationContext context)
+        {
+            var messageListeners = context.ServiceProvider.GetServices<IServerMessageListener>();
             if (messageListeners.Any())
             {
                 foreach (var messageListener in messageListeners)
                 {
                     messageListener.Received += async (sender, message) =>
                     {
-
                         using var serviceScope = EngineContext.Current.ServiceProvider.CreateScope();
-                        var rpcContextAccessor = EngineContext.Current.Resolve<IRpcContextAccessor>();
-                        rpcContextAccessor.RpcContext = RpcContext.Context;
-                        rpcContextAccessor.RpcContext.RpcServices = serviceScope.ServiceProvider;
-                        Debug.Assert(message.IsInvokeMessage());
                         message.SetRpcMessageId();
                         var remoteInvokeMessage = message.GetContent<RemoteInvokeMessage>();
                         remoteInvokeMessage.SetRpcAttachments();
+                        var rpcContextAccessor = EngineContext.Current.Resolve<IRpcContextAccessor>();
+                        rpcContextAccessor.RpcContext = RpcContext.Context;
+                        rpcContextAccessor.RpcContext.RpcServices = serviceScope.ServiceProvider;
                         var serverDiagnosticListener = EngineContext.Current.Resolve<IServerDiagnosticListener>();
                         var tracingTimestamp = serverDiagnosticListener.TracingBefore(remoteInvokeMessage, message.Id);
                         var handlePolicyBuilder = EngineContext.Current.Resolve<IHandlePolicyBuilder>();
                         var policy = handlePolicyBuilder.Build(remoteInvokeMessage);
-                        var context = new Context(PollyContextNames.ServerHandlerOperationKey);
-                        context[PollyContextNames.TracingTimestamp] = tracingTimestamp;
+                        var context = new Context(PollyContextNames.ServerHandlerOperationKey)
+                        {
+                            [PollyContextNames.TracingTimestamp] = tracingTimestamp
+                        };
                         var result = await policy.ExecuteAsync(async ct =>
                         {
                             var messageReceivedHandler = EngineContext.Current.Resolve<IServerMessageReceivedHandler>();
@@ -115,8 +119,7 @@ namespace Silky.Rpc
                 }
             }
         }
-
-
+        
         private void RegisterServicesForAddressSelector(ContainerBuilder builder)
         {
             builder.RegisterType<PollingRpcEndpointSelector>()

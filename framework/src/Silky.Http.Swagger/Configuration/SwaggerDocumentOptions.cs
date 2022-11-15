@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.OpenApi.Models;
 using Silky.Http.Swagger.Internal;
-using Silky.Swagger.SwaggerUI;
+using Silky.Swagger.Abstraction.SwaggerUI;
 
 namespace Silky.Http.Swagger.Configuration
 {
@@ -13,7 +13,9 @@ namespace Silky.Http.Swagger.Configuration
         public SwaggerDocumentOptions()
         {
             OrganizationMode = OrganizationMode.AllAndGroup;
+            ShowMode = ShowMode.All;
             EnableMultipleServiceKey = true;
+            ShowDashboardService = false;
             Description = "Swagger Document";
             Title = "Swagger UI";
             Version = "v1.0.0";
@@ -53,6 +55,8 @@ namespace Silky.Http.Swagger.Configuration
         }
 
         public OrganizationMode OrganizationMode { get; set; }
+        
+        public ShowMode ShowMode { get; set; }
 
         public bool EnableMultipleServiceKey { get; set; }
 
@@ -75,6 +79,8 @@ namespace Silky.Http.Swagger.Configuration
         public SpecificationOpenApiSecurityScheme[] SecurityDefinitions { get; set; }
 
         public string[] XmlComments { get; set; }
+        
+        public bool ShowDashboardService { get; set; }
     }
 
     public enum OrganizationMode
@@ -82,6 +88,13 @@ namespace Silky.Http.Swagger.Configuration
         NoGroup = 0,
         Group,
         AllAndGroup
+    }
+
+    public enum ShowMode
+    {
+        All,
+        Interface,
+        RegisterCenter
     }
 
     public class GroupDescription

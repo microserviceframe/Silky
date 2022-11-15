@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -27,7 +28,7 @@ namespace Silky.Rpc.Runtime.Server
         private readonly ConcurrentDictionary<(string, HttpMethod), ServiceEntryDescriptor>
             _serviceEntryDescriptorCacheForApi = new();
 
-        private readonly ConcurrentDictionary<string, IRpcEndpoint[]> _rpcRpcEndpointCache = new();
+        private readonly ConcurrentDictionary<string, ISilkyEndpoint[]> _rpcRpcEndpointCache = new();
         private readonly IRpcEndpointMonitor _rpcEndpointMonitor;
 
         private readonly object _lock;
@@ -54,9 +55,10 @@ namespace Silky.Rpc.Runtime.Server
                 return serviceEntryDescriptor;
             }
 
-            serviceEntryDescriptor = _serverCache.Values
+            serviceEntryDescriptor = _serverCache?.Values
                 .SelectMany(p => p.Services.SelectMany(p => p.ServiceEntries))
                 .FirstOrDefault(p => p.Id == serviceEntryId);
+
             if (serviceEntryDescriptor != null)
             {
                 _serviceEntryDescriptorCacheForId.TryAdd(serviceEntryId, serviceEntryDescriptor);
@@ -72,7 +74,7 @@ namespace Silky.Rpc.Runtime.Server
                 return serviceEntryDescriptor;
             }
 
-            serviceEntryDescriptor = _serverCache.Values
+            serviceEntryDescriptor = _serverCache?.Values
                 .SelectMany(p => p.Services.SelectMany(p => p.ServiceEntries))
                 .FirstOrDefault(p => p.WebApi == api && p.HttpMethod == httpMethod);
             if (serviceEntryDescriptor != null)
@@ -113,38 +115,43 @@ namespace Silky.Rpc.Runtime.Server
         }
 
 
-        private async Task HealthChangeHandler(IRpcEndpoint rpcEndpoint, bool isHealth)
+        private async Task HealthChangeHandler(ISilkyEndpoint silkyEndpoint, bool isHealth)
         {
-            RemoveRpcEndpointCache(rpcEndpoint);
+            RemoveRpcEndpointCache(silkyEndpoint);
             if (isHealth)
             {
-                rpcEndpoint.InitFuseTimes();
+                silkyEndpoint.InitFuseTimes();
             }
         }
 
-        private void RemoveRpcEndpointCache(IRpcEndpoint rpcEndpoint)
+        private void RemoveRpcEndpointCache(ISilkyEndpoint silkyEndpoint)
         {
             var needRemoveRpcEndpointKvs =
-                _rpcRpcEndpointCache.Where(p => p.Value.Any(q => q.Host == rpcEndpoint.Host));
+                _rpcRpcEndpointCache.Where(p => p.Value.Any(q => q.Host == silkyEndpoint.Host));
             foreach (var needRemoveRpcEndpointKv in needRemoveRpcEndpointKvs)
             {
                 _rpcRpcEndpointCache.TryRemove(needRemoveRpcEndpointKv.Key, out _);
             }
         }
 
-        private async Task RemoveRpcEndpointHandler(IRpcEndpoint rpcEndpoint)
+        private async Task RemoveRpcEndpointHandler(ISilkyEndpoint silkyEndpoint)
         {
             var needRemoveEndpointServerRoutes =
-                Servers.Where(p => p.Endpoints.Any(q => q.Host == rpcEndpoint.Host));
+                Servers?.Where(p => p.Endpoints.Any(q => q.Host == silkyEndpoint.Host));
+
+            if (needRemoveEndpointServerRoutes == null)
+            {
+                return;
+            }
 
             foreach (var needRemoveEndpointServerRoute in needRemoveEndpointServerRoutes)
             {
                 needRemoveEndpointServerRoute.Endpoints = needRemoveEndpointServerRoute.Endpoints
-                    .Where(p => p.Descriptor != rpcEndpoint.Descriptor).ToArray();
-                OnRemoveRpcEndpoint?.Invoke(needRemoveEndpointServerRoute.HostName, rpcEndpoint);
+                    .Where(p => p.Descriptor != silkyEndpoint.Descriptor).ToArray();
+                OnRemoveRpcEndpoint?.Invoke(needRemoveEndpointServerRoute.HostName, silkyEndpoint);
             }
 
-            RemoveRpcEndpointCache(rpcEndpoint);
+            RemoveRpcEndpointCache(silkyEndpoint);
         }
 
 
@@ -174,7 +181,7 @@ namespace Silky.Rpc.Runtime.Server
                 Logger.LogInformation(
                     "Update the server [{0}] data cache," +
                     "The instance endpoints of the server provider is: {1}[{2}]",
-                    server.HostName, Environment.NewLine, string.Join(',', server.Endpoints.Select(p => p.ToString())));
+                    server.HostName, Environment.NewLine, string.Join(';', server.Endpoints.Select(p => p.ToString())));
 
                 foreach (var rpcEndpoint in server.Endpoints)
                 {
@@ -193,6 +200,8 @@ namespace Silky.Rpc.Runtime.Server
 
         public void Remove(string hostName)
         {
+            if (_serverCache == null)
+                return;
             _serverCache.TryRemove(hostName, out IServer server);
             if (server != null)
             {
@@ -205,7 +214,7 @@ namespace Silky.Rpc.Runtime.Server
 
         public ServerDescriptor GetServerDescriptor(string hostName)
         {
-            return _serverCache.GetValueOrDefault(hostName)?.ConvertToDescriptor();
+            return _serverCache?.GetValueOrDefault(hostName)?.ConvertToDescriptor();
         }
 
         public IServer GetServer(string hostName)
@@ -213,11 +222,22 @@ namespace Silky.Rpc.Runtime.Server
             return _serverCache.GetValueOrDefault(hostName);
         }
 
-        public IReadOnlyList<ServerDescriptor> ServerDescriptors =>
-            _serverCache.Values.Select(p => p.ConvertToDescriptor()).ToArray();
+        public IReadOnlyList<ServerDescriptor> ServerDescriptors
+        {
+            get
+            {
+                if (_serverCache == null)
+                {
+                    return ImmutableArray<ServerDescriptor>.Empty;
+                }
+
+                return _serverCache.Values.Select(p => p.ConvertToDescriptor()).ToArray();
+            }
+        }
 
         public IServer GetSelfServer()
         {
+            Debug.Assert(_serverCache != null, "_serverCache != null");
             if (_serverCache.TryGetValue(EngineContext.Current.HostName, out var server))
             {
                 return server;
@@ -226,20 +246,25 @@ namespace Silky.Rpc.Runtime.Server
             return server;
         }
 
-        public IReadOnlyList<IServer> Servers => _serverCache.Values.ToArray();
+        public IReadOnlyList<IServer> Servers => _serverCache?.Values.ToArray();
 
-        public IRpcEndpoint[] GetRpcEndpoints(string serviceId, ServiceProtocol serviceProtocol)
+        public ISilkyEndpoint[] GetRpcEndpoints(string serviceId, ServiceProtocol serviceProtocol)
         {
-            if (_rpcRpcEndpointCache.TryGetValue(serviceId, out IRpcEndpoint[] endpoints))
+            if (_rpcRpcEndpointCache.TryGetValue(serviceId, out ISilkyEndpoint[] endpoints))
             {
                 return endpoints;
             }
 
-            endpoints = Servers.Where(p =>
+            endpoints = Servers?.Where(p =>
                     p.Services.Any(q => q.Id == serviceId))
                 .SelectMany(p => p.Endpoints.Where(e => e.ServiceProtocol == serviceProtocol))
                 .Where(p => p.Enabled)
                 .ToArray();
+            if (endpoints == null)
+            {
+                return Array.Empty<ISilkyEndpoint>();
+            }
+
             if (endpoints.Any())
             {
                 _rpcRpcEndpointCache.TryAdd(serviceId, endpoints);
@@ -254,6 +279,7 @@ namespace Silky.Rpc.Runtime.Server
             {
                 return null;
             }
+
             var serviceDescriptor = _serverCache.Values.SelectMany(p => p.Services)
                 .FirstOrDefault(p => p.Id == serviceId);
             return serviceDescriptor;

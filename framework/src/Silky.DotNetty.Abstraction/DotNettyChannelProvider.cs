@@ -13,6 +13,7 @@ using Silky.DotNetty.Handlers;
 using Silky.Rpc.Configuration;
 using Silky.Rpc.Endpoint;
 using Silky.Rpc.Endpoint.Monitor;
+using Silky.Rpc.Runtime;
 using Silky.Rpc.Runtime.Client;
 using Silky.Rpc.Transport.Codec;
 
@@ -37,7 +38,7 @@ public class DotNettyChannelProvider : ITransientDependency, IChannelProvider
         governanceOptions.OnChange((options, s) => _governanceOptions = options);
     }
 
-    public async Task<IChannel> Create(IRpcEndpoint rpcEndpoint, ClientMessageListener messageListener,
+    public async Task<IChannel> Create(ISilkyEndpoint silkyEndpoint, IMessageListener messageListener,
         IRpcEndpointMonitor rpcEndpointMonitor)
     {
         var bootstrap = _bootstrapProvider.CreateClientBootstrap();
@@ -58,8 +59,6 @@ public class DotNettyChannelProvider : ITransientDependency, IChannelProvider
 
                 pipeline.AddLast(new LengthFieldPrepender(4));
                 pipeline.AddLast(new LengthFieldBasedFrameDecoder(int.MaxValue, 0, 4, 0, 4));
-                pipeline.AddLast(ZlibCodecFactory.NewZlibEncoder(ZlibWrapper.Gzip));
-                pipeline.AddLast(ZlibCodecFactory.NewZlibDecoder(ZlibWrapper.Gzip));
                 if (_governanceOptions.EnableHeartbeat &&
                     _governanceOptions.HeartbeatWatchIntervalSeconds > 0)
                 {
@@ -74,7 +73,7 @@ public class DotNettyChannelProvider : ITransientDependency, IChannelProvider
                 pipeline.AddLast("decoder",
                     new DecoderHandler(_transportMessageDecoder));
             }));
-        var channel = await bootstrap.ConnectAsync(rpcEndpoint.IPEndPoint);
+        var channel = await bootstrap.ConnectAsync(silkyEndpoint.IPEndPoint);
         var pipeline = channel.Pipeline;
         pipeline.AddLast("ClientHandler", new ClientHandler(messageListener, rpcEndpointMonitor));
         return channel;

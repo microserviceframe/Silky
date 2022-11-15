@@ -21,8 +21,7 @@ namespace Silky.Rpc.Runtime.Server
 
         public DefaultServiceEntryGenerator(IIdGenerator idGenerator,
             IParameterProvider parameterProvider,
-            IOptionsMonitor<GovernanceOptions> governanceOptions,
-            ITypeFinder typeFinder)
+            IOptionsMonitor<GovernanceOptions> governanceOptions)
         {
             _idGenerator = idGenerator;
             _parameterProvider = parameterProvider;
@@ -108,6 +107,17 @@ namespace Silky.Rpc.Runtime.Server
                 parameterDescriptors,
                 isLocal,
                 _governanceOptions);
+
+            if (serviceEntry.NeedHttpProtocolSupport())
+            {
+                serviceEntryDescriptor.Metadatas.Add(ServiceEntryConstant.NeedHttpProtocolSupport, true);
+            }
+
+            if (serviceEntry.IsSilkyAppService())
+            {
+                serviceEntryDescriptor.Metadatas.Add(ServiceEntryConstant.IsSilkyAppService, true);
+            }
+            
             return serviceEntry;
         }
     }

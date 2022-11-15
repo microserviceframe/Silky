@@ -48,15 +48,25 @@ namespace Silky.Core.Modularity
                 !typeInfo.IsGenericType &&
                 typeof(ISilkyModule).GetTypeInfo().IsAssignableFrom(type);
         }
-
+        
         public virtual string Name { get; }
 
-        public virtual Task Initialize([NotNull] ApplicationContext applicationContext)
+        public virtual Task PreInitialize(ApplicationInitializationContext context)
         {
             return Task.CompletedTask;
         }
 
-        public virtual Task Shutdown([NotNull] ApplicationContext applicationContext)
+        public virtual Task Initialize([NotNull] ApplicationInitializationContext context)
+        {
+            return Task.CompletedTask;
+        }
+
+        public virtual Task PostInitialize(ApplicationInitializationContext context)
+        {
+            return Task.CompletedTask;
+        }
+
+        public virtual Task Shutdown([NotNull] ApplicationShutdownContext context)
         {
             return Task.CompletedTask;
         }

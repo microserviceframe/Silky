@@ -6,6 +6,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Serilog;
+using Silky.GatewayHost.Authorization;
 
 namespace Silky.GatewayHost
 {
@@ -21,9 +22,8 @@ namespace Silky.GatewayHost
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddSilkyHttpServices();
+            services.AddSilkyHttpServices<AuthorizationHandler>();
             services.AddSilkySkyApm();
-            services.AddMessagePackCodec();
             services.AddHealthChecks()
                 .AddSilkyRpc();
             services
@@ -46,14 +46,15 @@ namespace Silky.GatewayHost
             app.UseSilkyRpcHealthCheck()
                 .UseHealthChecksPrometheusExporter("/metrics");
             app.UseRouting();
+            app.UseSilkyWebSocketsProxy();
             app.UseSilkyIdentity();
             app.UseSilkyWrapperResponse();
             // app.UseClientRateLimiting();
             // app.UseIpRateLimiting();
             app.UseResponseCaching();
-            app.UseHttpsRedirection();
-            app.UseSilkyWebSocketsProxy();
-            app.UseSilkyHttpServer();
+            // app.UseHttpsRedirection();
+           
+       
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapHealthChecksUI();

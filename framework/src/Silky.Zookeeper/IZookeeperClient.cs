@@ -126,6 +126,8 @@ namespace Silky.Zookeeper
         /// <param name="path">节点路径。</param>
         /// <param name="listener">监听者。</param>
         void UnSubscribeChildrenChange(string path, NodeChildrenChangeHandler listener);
+
+        Task Authorize(AuthScheme authScheme, string auth = "");
     }
 
     /// <summary>
@@ -291,7 +293,7 @@ namespace Silky.Zookeeper
         /// <param name="client">zk客户端。</param>
         public static void WaitForRetry(this IZookeeperClient client)
         {
-            client.WaitUntilConnected(client.Options.OperatingTimeout);
+            client.WaitUntilConnected(client.Options.ConnectionTimeout);
         }
 
         /// <summary>

@@ -5,6 +5,7 @@ namespace Silky.Rpc.Runtime.Server
         public int Index { get; }
 
         string PropName { get; set; }
-        
+
+        public CacheKeyType CacheKeyType { get; }
     }
 }

@@ -31,7 +31,7 @@ namespace Silky.RegistryCenter.Nacos
             _nacosRegistryCenterOptions = nacosRegistryCenterOptions.CurrentValue;
         }
 
-        public async Task<ServiceDescriptor[]> GetServices(string hostName, long timeoutMs = 5000)
+        public async Task<ServiceDescriptor[]> GetServices(string hostName, long timeoutMs = 10000)
         {
             if (m_services.TryGetValue(hostName, out var serviceDescriptors))
             {
@@ -39,7 +39,7 @@ namespace Silky.RegistryCenter.Nacos
             }
 
             var serviceConfigValue =
-                await _nacosConfigService.GetConfigAndSignListener(hostName, _nacosRegistryCenterOptions.GroupName,
+                await _nacosConfigService.GetConfigAndSignListener(hostName, _nacosRegistryCenterOptions.ServerGroupName,
                     timeoutMs,
                     new ServiceListener(hostName, this));
             if (serviceConfigValue.IsNullOrEmpty())
@@ -52,8 +52,7 @@ namespace Silky.RegistryCenter.Nacos
             return serviceDescriptors;
         }
 
-        public async Task PublishServices(string hostName, ServiceDescriptor[] serviceDescriptors,
-            long timeoutMs = 5000)
+        public async Task PublishServices(string hostName, ServiceDescriptor[] serviceDescriptors)
         {
             if (m_services.TryGetValue(hostName, out var cacheServiceDescriptors))
             {
@@ -62,20 +61,20 @@ namespace Silky.RegistryCenter.Nacos
                     return;
                 }
             }
-
+            
             var serviceConfigValue = _serializer.Serialize(serviceDescriptors);
-            var result = await _nacosConfigService.PublishConfig(hostName, _nacosRegistryCenterOptions.GroupName,
+            var result = await _nacosConfigService.PublishConfig(hostName, _nacosRegistryCenterOptions.ServerGroupName,
                 serviceConfigValue);
             if (!result)
             {
-                throw new SilkyException("Failed to publish service description information");
+                throw new SilkyException($"Failed to publish {hostName} service description information");
             }
         }
 
         public void UpdateService(string hostName, string configInfo)
         {
             var serviceDescriptors = _serializer.Deserialize<ServiceDescriptor[]>(configInfo);
-            m_services.TryAdd(hostName, serviceDescriptors);
+            m_services.AddOrUpdate(hostName, serviceDescriptors, (k, v) => serviceDescriptors);
         }
     }
 }

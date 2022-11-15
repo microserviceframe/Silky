@@ -6,6 +6,7 @@ using Silky.Core.Exceptions;
 using Silky.Core.Runtime.Rpc;
 using Silky.Core.Serialization;
 using Silky.RegistryCenter.Consul.Configuration;
+using Silky.Rpc.Endpoint.Descriptor;
 using Silky.Rpc.Runtime.Server;
 
 namespace Silky.RegistryCenter.Consul
@@ -15,7 +16,7 @@ namespace Silky.RegistryCenter.Consul
         public static AgentServiceRegistration CreateAgentServiceRegistration(this ServerDescriptor serverDescriptor)
         {
             var endpoint = serverDescriptor.Endpoints.FirstOrDefault(p =>
-                p.ServiceProtocol == ServiceProtocol.Tcp || p.ServiceProtocol.IsHttp());
+                p.ServiceProtocol == ServiceProtocol.Rpc || p.ServiceProtocol.IsHttp());
 
             if (endpoint == null)
             {
@@ -34,7 +35,7 @@ namespace Silky.RegistryCenter.Consul
 
             var agentServiceRegistration = new AgentServiceRegistration()
             {
-                ID = endpoint.ToString(),
+                ID = endpoint.GetAddress(),
                 Address = endpoint.Host,
                 Port = endpoint.Port,
                 Name = serverDescriptor.HostName,
@@ -66,7 +67,7 @@ namespace Silky.RegistryCenter.Consul
         public static string GetInstanceId(this IServer server)
         {
             var endpoint = server.Endpoints.FirstOrDefault(p =>
-                p.ServiceProtocol == ServiceProtocol.Tcp || p.ServiceProtocol.IsHttp());
+                p.ServiceProtocol == ServiceProtocol.Rpc || p.ServiceProtocol.IsHttp());
 
             if (endpoint == null)
             {

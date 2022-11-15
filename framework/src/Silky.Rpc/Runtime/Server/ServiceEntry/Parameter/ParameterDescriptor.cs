@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using Silky.Core.Exceptions;
 using Silky.Core.Extensions;
 
@@ -13,15 +14,17 @@ namespace Silky.Rpc.Runtime.Server
             ParameterFrom @from,
             ParameterInfo parameterInfo,
             int index,
+            string[] cacheKeyTemplates,
             string name = null,
             string pathTemplate = null)
         {
             From = @from;
             ParameterInfo = parameterInfo;
             Name = !name.IsNullOrEmpty() ? name : parameterInfo.Name;
+            SampleName = Name.Split(":")[0];
             Type = parameterInfo.ParameterType;
             IsHashKey = DecideIsHashKey();
-            CacheKeys = CreateCacheKeys();
+            CacheKeys = CreateCacheKeys(cacheKeyTemplates);
             PathTemplate = pathTemplate;
             Index = index;
             if (@from == ParameterFrom.Path && PathTemplate.IsNullOrEmpty())
@@ -30,15 +33,59 @@ namespace Silky.Rpc.Runtime.Server
             }
         }
 
-        private IReadOnlyCollection<ICacheKeyProvider> CreateCacheKeys()
+        private IReadOnlyCollection<ICacheKeyProvider> CreateCacheKeys(string[] cacheKeyTemplates)
+        {
+            var cacheKeys = new List<ICacheKeyProvider>();
+            var attributeInfoCacheKeyProviders = ParserAttributeCacheKeyProviders();
+
+            if (attributeInfoCacheKeyProviders != null)
+            {
+                cacheKeys.AddRange(attributeInfoCacheKeyProviders);
+            }
+
+            var namedCacheKeyProviders = ParserNamedCacheKeyProviders(cacheKeyTemplates);
+            cacheKeys.AddRange(namedCacheKeyProviders);
+            return cacheKeys;
+        }
+
+        private ICollection<ICacheKeyProvider> ParserNamedCacheKeyProviders(string[] cacheKeyTemplates)
+        {
+            var cacheKeys = new List<ICacheKeyProvider>();
+            var cacheKeyParameters =
+                cacheKeyTemplates.SelectMany(p =>
+                    Regex.Matches(p, CacheKeyConstants.CacheKeyParameterRegex)
+                        .Select(q => q.Value.RemoveCurlyBraces()));
+
+            foreach (var cacheKeyParameter in cacheKeyParameters)
+            {
+                if (IsSampleType && SampleName.Equals(cacheKeyParameter, StringComparison.OrdinalIgnoreCase))
+                {
+                    cacheKeys.Add(new NamedCacheKeyProvider(SampleName, Index));
+                    break;
+                }
+
+                var properties = Type.GetProperties();
+                foreach (var property in properties)
+                {
+                    if (property.Name.Equals(cacheKeyParameter, StringComparison.OrdinalIgnoreCase))
+                    {
+                        cacheKeys.Add(new NamedCacheKeyProvider(property.Name, Index));
+                        break;
+                    }
+                }
+            }
+
+            return cacheKeys;
+        }
+
+        private ICollection<ICacheKeyProvider> ParserAttributeCacheKeyProviders()
         {
             var cacheKeys = new List<ICacheKeyProvider>();
             var parameterInfoCacheKeyProvider =
                 ParameterInfo.GetCustomAttributes().OfType<ICacheKeyProvider>().FirstOrDefault();
             if (IsSampleOrNullableType && parameterInfoCacheKeyProvider != null)
             {
-                parameterInfoCacheKeyProvider.PropName = Name;
-
+                parameterInfoCacheKeyProvider.PropName = SampleName;
                 cacheKeys.Add(parameterInfoCacheKeyProvider);
             }
             else if (!IsSampleOrNullableType && parameterInfoCacheKeyProvider != null)
@@ -96,6 +143,8 @@ namespace Silky.Rpc.Runtime.Server
 
         public string Name { get; }
 
+        public string SampleName { get; }
+
         public string PathTemplate { get; }
 
         public bool IsSampleOrNullableType => Type.IsSample() || Type.IsNullableType();
@@ -104,7 +153,6 @@ namespace Silky.Rpc.Runtime.Server
 
         public bool IsNullableType => Type.IsNullableType();
 
-        // public bool IsNullEnabled => Type.IsNullableType();
 
         public ParameterInfo ParameterInfo { get; }
 

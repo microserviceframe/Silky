@@ -1,10 +1,11 @@
-﻿using System.Threading.Tasks;
+﻿using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Silky.Core;
 using Silky.Core.Extensions;
 using Silky.Rpc.Endpoint;
-using static Silky.Rpc.Endpoint.RpcEndpointHelper;
+using static Silky.Rpc.Endpoint.SilkyEndpointHelper;
 
 namespace Silky.Rpc.Runtime.Server
 {
@@ -34,11 +35,33 @@ namespace Silky.Rpc.Runtime.Server
             await CacheServers();
         }
 
+        protected virtual async Task<bool> RepeatRegister()
+        {
+            var selfServerInfo = _serverManager.GetSelfServer();
+            var localServer = _serverProvider.GetServer();
+            var needRegister = false;
+            foreach (var endpoint in localServer.Endpoints)
+            {
+                if (!selfServerInfo.Endpoints.Any(e=> e.Equals(endpoint)))
+                {
+                    needRegister = true;
+                    break;
+                }
+            }
+
+            if (needRegister)
+            {
+                await RegisterServer();
+            }
+
+            return needRegister;
+        }
+
         public virtual async Task RemoveSelf()
         {
             if (EngineContext.Current.IsContainDotNettyTcpModule())
             {
-                var tcpEndpoint = GetLocalTcpEndpoint();
+                var tcpEndpoint = GetLocalRpcEndpoint();
                 await RemoveRpcEndpoint(EngineContext.Current.HostName, tcpEndpoint);
             }
 
@@ -58,7 +81,7 @@ namespace Silky.Rpc.Runtime.Server
             }
         }
 
-        protected abstract Task RemoveRpcEndpoint(string hostName, IRpcEndpoint rpcEndpoint);
+        protected abstract Task RemoveRpcEndpoint(string hostName, ISilkyEndpoint silkyEndpoint);
 
         protected abstract Task CacheServers();
 

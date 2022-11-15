@@ -6,8 +6,10 @@ rpc:
 #  sslCertificateName: test.silky-fk.com.pfx
 #  sslCertificatePassword: bdSpw3W7
 registrycenter:
-    connectionStrings: 127.0.0.1:2181,127.0.0.1:2182,127.0.0.1:2183;127.0.0.1:2184,127.0.0.1:2185,127.0.0.1:2186
-    type: Zookeeper
+  connectionStrings: 127.0.0.1:2181,127.0.0.1:2182,127.0.0.1:2183;127.0.0.1:2184,127.0.0.1:2185,127.0.0.1:2186
+  type: Zookeeper
+  scheme: Digest
+  auth: "silky:pass4Word"
 #registrycenter:
 #    type: Nacos
 #    namespace: silky
@@ -17,11 +19,11 @@ registrycenter:
 #        - http://127.0.0.1:8850/
 #    userName: nacos
 #    password: nacos
-#    groupName: DEFAULT_GROUP
 #    clusterName: DEFAULT
 #    registerEnabled: true
 #    instanceEnabled: true
 #    namingUseRpc: true
+
 #registrycenter:
 #  type: Consul
 #  address: http://127.0.0.1:8500
@@ -37,7 +39,7 @@ serilog:
     override:
       Microsoft: Warning
       Microsoft.Hosting.Lifetime: Information
-      Silky.Rpc: Debug
+      Silky.Rpc: Information
   writeTo:
     - name: File
       args:
@@ -47,3 +49,10 @@ serilog:
       args:
         outputTemplate: "[{Timestamp:yyyy/MM/dd HH:mm:ss} {Level:u11}] {Message:lj} {NewLine}{Exception}{NewLine}"
         theme: "Serilog.Sinks.SystemConsole.Themes.SystemConsoleTheme::Literate, Serilog.Sinks.Console"
+
+rabbitMq:
+  host: 127.0.0.1
+  port: 5672
+  userName: rabbitmq
+  password: rabbitmq
+  virtualHost: /

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
 using Autofac;
@@ -10,10 +11,13 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
+using Silky.Core.Configuration;
 using Silky.Core.Extensions;
 using Silky.Core.DependencyInjection;
 using Silky.Core.Exceptions;
 using Silky.Core.Modularity;
+using Silky.Core.Modularity.PlugIns;
+using Silky.Core.Reflection;
 using Silky.Core.Runtime.Rpc;
 
 namespace Silky.Core
@@ -21,36 +25,67 @@ namespace Silky.Core
     internal sealed class SilkyEngine : IEngine, IModuleContainer
     {
         private ITypeFinder _typeFinder;
+        private Banner _banner;
+
 
         public IConfiguration Configuration { get; private set; }
 
         public IHostEnvironment HostEnvironment { get; private set; }
 
+        Banner IEngine.Banner
+        {
+            get => _banner;
+            set => _banner = value;
+        }
+
         public string HostName { get; private set; }
 
-        public void ConfigureServices(IServiceCollection services, IConfiguration configuration,
-            IHostEnvironment hostEnvironment)
+        internal SilkyEngine()
         {
-            _typeFinder = new SilkyAppTypeFinder();
-            ServiceProvider = services.BuildServiceProvider();
-            Configuration = configuration;
-            HostEnvironment = hostEnvironment;
             HostName = Assembly.GetEntryAssembly()?.GetName().Name;
+            AppDomain.CurrentDomain.AssemblyResolve += CurrentDomain_AssemblyResolve;
+        }
 
+        void IEngine.SetTypeFinder([NotNull] IServiceCollection services, [NotNull] ISilkyFileProvider fileProvider,
+            [NotNull] AppServicePlugInSourceList appServicePlugInSources)
+        {
+            Check.NotNull(services, nameof(services));
+            Check.NotNull(fileProvider, nameof(fileProvider));
+            Check.NotNull(appServicePlugInSources, nameof(appServicePlugInSources));
+
+            _typeFinder = new SilkyAppTypeFinder(appServicePlugInSources, fileProvider);
+            services.AddSingleton(_typeFinder);
+        }
+
+        void IEngine.SetHostEnvironment([NotNull] IHostEnvironment hostEnvironment)
+        {
+            Check.NotNull(hostEnvironment, nameof(hostEnvironment));
+            HostEnvironment = hostEnvironment;
+        }
+
+
+        void IEngine.SetConfiguration([NotNull] IConfiguration configuration)
+        {
+            Check.NotNull(configuration, nameof(configuration));
+            Configuration = configuration;
+        }
+
+        void IEngine.ConfigureServices([NotNull] IServiceCollection services, [NotNull] IConfiguration configuration)
+        {
+            Check.NotNull(services, nameof(services));
+            Check.NotNull(configuration, nameof(configuration));
             var configureServices = _typeFinder.FindClassesOfType<IConfigureService>();
-
             //create and sort instances of startup configurations
             var instances = configureServices
                 .Select(configureService => (IConfigureService)Activator.CreateInstance(configureService));
 
             //configure services
             foreach (var instance in instances)
-                instance.ConfigureServices(services, configuration);
+                instance.ConfigureServices(services, Configuration);
             // configure modules 
             foreach (var module in Modules)
-                module.Instance.ConfigureServices(services, configuration);
-
-            AppDomain.CurrentDomain.AssemblyResolve += CurrentDomain_AssemblyResolve;
+                module.Instance.ConfigureServices(services, Configuration);
+            ServiceProvider = services.BuildServiceProvider();
         }
 
         public TOptions GetOptions<TOptions>()
@@ -59,10 +94,23 @@ namespace Silky.Core
             return Resolve<IOptions<TOptions>>()?.Value;
         }
 
+        public TOptions GetOptions<TOptions>(string optionName)
+            where TOptions : class, new()
+        {
+            var options = GetOptions<TOptions>();
+            if (options != null)
+            {
+                return options;
+            }
+
+            options = Configuration.GetSection(optionName).Get<TOptions>() ?? new TOptions();
+            return options;
+        }
+
         public TOptions GetOptionsMonitor<TOptions>()
             where TOptions : class, new()
         {
-            return Resolve<IOptionsMonitor<TOptions>>().CurrentValue;
+            return Resolve<IOptionsMonitor<TOptions>>()?.CurrentValue;
         }
 
         public TOptions GetOptionsMonitor<TOptions>(Action<TOptions, string> listener)
@@ -87,7 +135,7 @@ namespace Silky.Core
         public ITypeFinder TypeFinder => _typeFinder;
 
 
-        public void ConfigureRequestPipeline(IApplicationBuilder application)
+        void IEngine.ConfigureRequestPipeline(IApplicationBuilder application)
         {
             ServiceProvider = application.ApplicationServices;
             var typeFinder = Resolve<ITypeFinder>();
@@ -220,6 +268,12 @@ namespace Silky.Core
             return serviceProvider;
         }
 
+        void IEngine.SetApplicationName([NotNull] string applicationName)
+        {
+            Check.NotNullOrWhiteSpace(applicationName, nameof(applicationName));
+            HostName = applicationName;
+        }
+
         public void RegisterDependencies(ContainerBuilder containerBuilder)
         {
             containerBuilder.RegisterInstance(this).As<IEngine>().SingleInstance();
@@ -263,9 +317,39 @@ namespace Silky.Core
             }
         }
 
-        public void LoadModules<T>(IServiceCollection services, IModuleLoader moduleLoader) where T : StartUpModule
+        void IEngine.LoadModules(IServiceCollection services, Type startUpType, IModuleLoader moduleLoader,
+            [NotNull] PlugInSourceList plugInSources)
         {
-            Modules = moduleLoader.LoadModules(services, typeof(T));
+            Check.NotNull(plugInSources, nameof(plugInSources));
+            if (!SilkyModule.IsSilkyModule(startUpType))
+            {
+                throw new SilkyException($"{startUpType.FullName} is not a Silky module type.");
+            }
+
+            LoadConfigPlugInModules(plugInSources);
+
+            Modules = moduleLoader.LoadModules(services, startUpType, plugInSources);
+        }
+
+        private void LoadConfigPlugInModules(PlugInSourceList plugInSources)
+        {
+            var plugInOptions = GetOptions<PlugInSourceOptions>(PlugInSourceOptions.PlugInSource);
+
+            if (plugInOptions.ModulePlugIn == null) return;
+            if (plugInOptions.ModulePlugIn.Types != null)
+            {
+                plugInSources.AddTypeNames(plugInOptions.ModulePlugIn.Types);
+            }
+
+            if (plugInOptions.ModulePlugIn.FilePaths != null)
+            {
+                plugInSources.AddFiles(plugInOptions.ModulePlugIn.FilePaths);
+            }
+
+            if (plugInOptions.ModulePlugIn.Folders != null)
+            {
+                plugInSources.AddFolders(plugInOptions.ModulePlugIn.Folders);
+            }
         }
 
         public IServiceProvider ServiceProvider { get; set; }

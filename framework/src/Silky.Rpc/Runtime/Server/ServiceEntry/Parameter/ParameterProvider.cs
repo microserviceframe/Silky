@@ -2,6 +2,7 @@
 using System.Collections.Immutable;
 using System.Linq;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using Silky.Core.Exceptions;
 using Silky.Core.Extensions;
 using Silky.Core.MethodExecutor;
@@ -17,15 +18,34 @@ namespace Silky.Rpc.Runtime.Server
         public IReadOnlyList<ParameterDescriptor> GetParameterDescriptors(MethodInfo methodInfo,
             HttpMethodInfo httpMethodInfo)
         {
+            var cacheKeyTemplates = methodInfo.GetCustomAttributes().OfType<ICachingInterceptProvider>()
+                .Select(p => p.KeyTemplate).ToArray();
+            if (cacheKeyTemplates.Any(t =>
+                    Regex.IsMatch(t, CacheKeyConstants.CacheKeyIndexRegex) &&
+                    Regex.IsMatch(t, CacheKeyConstants.CacheKeyParameterRegex)))
+            {
+                throw new SilkyException(
+                    "The cache interception template you set is incorrect, please do not mix the way the template is set.");
+            }
+
+            if (cacheKeyTemplates.Any(c =>
+                    Regex.Matches(c, CacheKeyConstants.CacheKeyParameterRegex).Select(p => p.Value).GroupBy(q => q)
+                        .Count() > 1))
+            {
+                throw new SilkyException(
+                    "Cache interception template parameters do not allow duplicate names.");
+            }
+
             var parameterDescriptors = new List<ParameterDescriptor>();
             var index = 0;
             foreach (var parameter in methodInfo.GetParameters())
             {
-                var parameterDescriptor = CreateParameterDescriptor(methodInfo, parameter, httpMethodInfo, index);
+                var parameterDescriptor =
+                    CreateParameterDescriptor(methodInfo, parameter, cacheKeyTemplates, httpMethodInfo, index);
                 if (parameterDescriptor.From == ParameterFrom.Body &&
                     parameterDescriptors.Any(p => p.From == ParameterFrom.Body))
                 {
-                    throw new SilkyException("Only one parameter of Request Body is allowed to be set");
+                    throw new SilkyException("Only one parameter of Request Body is allowed to be set.");
                 }
 
                 parameterDescriptors.Add(parameterDescriptor);
@@ -35,8 +55,12 @@ namespace Silky.Rpc.Runtime.Server
             return parameterDescriptors.ToImmutableList();
         }
 
-        private ParameterDescriptor CreateParameterDescriptor(MethodInfo methodInfo, ParameterInfo parameter,
-            HttpMethodInfo httpMethodInfo, int index)
+        private ParameterDescriptor CreateParameterDescriptor(
+            MethodInfo methodInfo,
+            ParameterInfo parameter,
+            string[] cacheKeyTemplates,
+            HttpMethodInfo httpMethodInfo,
+            int index)
         {
             var bindingSourceMetadata =
                 parameter.GetCustomAttributes().OfType<IBindingSourceMetadata>().FirstOrDefault();
@@ -55,7 +79,7 @@ namespace Silky.Rpc.Runtime.Server
                     throw new SilkyException($"Route type parameters are not allowed to be complex data types");
                 }
 
-                parameterDescriptor = new ParameterDescriptor(parameterFrom, parameter, index);
+                parameterDescriptor = new ParameterDescriptor(parameterFrom, parameter, index, cacheKeyTemplates);
             }
             else
             {
@@ -67,8 +91,8 @@ namespace Silky.Rpc.Runtime.Server
                     if (httpMethodAttribute == null)
                     {
                         parameterDescriptor = parameter.IsSampleType()
-                            ? new ParameterDescriptor(ParameterFrom.Path, parameter, index)
-                            : new ParameterDescriptor(ParameterFrom.Query, parameter, index);
+                            ? new ParameterDescriptor(ParameterFrom.Path, parameter, index, cacheKeyTemplates)
+                            : new ParameterDescriptor(ParameterFrom.Query, parameter, index, cacheKeyTemplates);
                     }
                     else
                     {
@@ -85,6 +109,7 @@ namespace Silky.Rpc.Runtime.Server
                                     parameterDescriptor =
                                         new ParameterDescriptor(ParameterFrom.Path, parameter,
                                             index,
+                                            cacheKeyTemplates,
                                             TemplateSegmentHelper.GetSegmentVal(routeTemplateSegment),
                                             routeTemplateSegment);
                                     parameterFromPath = true;
@@ -94,26 +119,28 @@ namespace Silky.Rpc.Runtime.Server
 
                             if (!parameterFromPath)
                             {
-                                parameterDescriptor = new ParameterDescriptor(ParameterFrom.Query, parameter, index);
+                                parameterDescriptor = new ParameterDescriptor(ParameterFrom.Query, parameter, index,
+                                    cacheKeyTemplates);
                             }
                         }
                         else
                         {
                             parameterDescriptor = parameter.IsSampleType()
-                                ? new ParameterDescriptor(ParameterFrom.Path, parameter, index)
-                                : new ParameterDescriptor(ParameterFrom.Query, parameter, index);
+                                ? new ParameterDescriptor(ParameterFrom.Path, parameter, index, cacheKeyTemplates)
+                                : new ParameterDescriptor(ParameterFrom.Query, parameter, index, cacheKeyTemplates);
                         }
                     }
                 }
                 else if (parameter.IsFormFileType())
                 {
-                    parameterDescriptor = new ParameterDescriptor(ParameterFrom.Form, parameter, index);
+                    parameterDescriptor =
+                        new ParameterDescriptor(ParameterFrom.Form, parameter, index, cacheKeyTemplates);
                 }
                 else
                 {
                     parameterDescriptor = httpMethodInfo.HttpMethod == HttpMethod.Get
-                        ? new ParameterDescriptor(ParameterFrom.Query, parameter, index)
-                        : new ParameterDescriptor(ParameterFrom.Body, parameter, index);
+                        ? new ParameterDescriptor(ParameterFrom.Query, parameter, index, cacheKeyTemplates)
+                        : new ParameterDescriptor(ParameterFrom.Body, parameter, index, cacheKeyTemplates);
                 }
             }
 

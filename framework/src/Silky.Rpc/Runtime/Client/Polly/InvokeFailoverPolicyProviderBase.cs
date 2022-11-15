@@ -7,7 +7,7 @@ namespace Silky.Rpc.Runtime.Client
 {
     public abstract class InvokeFailoverPolicyProviderBase : IInvokeFailoverPolicyProvider
     {
-        protected virtual IRpcEndpoint GetSelectedServerEndpoint()
+        protected virtual ISilkyEndpoint GetSelectedServerEndpoint()
         {
             var selectedHost = RpcContext.Context.GetSelectedServerHost();
             if (selectedHost == null)
@@ -18,7 +18,7 @@ namespace Silky.Rpc.Runtime.Client
             var selectedServerPort = RpcContext.Context.GetSelectedServerPort();
             var selectedServerServiceProtocol = RpcContext.Context.GetSelectedServerServiceProtocol();
             var selectedServerEndpoint =
-                RpcEndpointHelper.CreateRpcEndpoint(selectedHost, selectedServerPort, selectedServerServiceProtocol);
+                SilkyEndpointHelper.CreateRpcEndpoint(selectedHost, selectedServerPort, selectedServerServiceProtocol);
             return selectedServerEndpoint;
         }
         

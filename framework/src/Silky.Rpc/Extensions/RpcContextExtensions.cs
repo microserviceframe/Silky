@@ -10,27 +10,27 @@ namespace Silky.Rpc.Extensions
 {
     public static class RpcContextExtensions
     {
-        public static void SetRcpInvokeAddressInfo(this RpcContext rpcContext, RpcEndpointDescriptor serverRpcEndpoint)
+        public static void SetRcpInvokeAddressInfo(this RpcContext rpcContext, SilkyEndpointDescriptor serverSilkyEndpoint)
         {
             rpcContext
-                .SetInvokeAttachment(AttachmentKeys.SelectedServerHost, serverRpcEndpoint.Host);
+                .SetInvokeAttachment(AttachmentKeys.SelectedServerHost, serverSilkyEndpoint.Host);
             rpcContext
-                .SetInvokeAttachment(AttachmentKeys.SelectedServerPort, serverRpcEndpoint.Port.ToString());
+                .SetInvokeAttachment(AttachmentKeys.SelectedServerPort, serverSilkyEndpoint.Port.ToString());
             rpcContext
                 .SetInvokeAttachment(AttachmentKeys.SelectedServerServiceProtocol,
-                    serverRpcEndpoint.ServiceProtocol.ToString());
+                    serverSilkyEndpoint.ServiceProtocol.ToString());
 
 
-            var localRpcEndpointDescriptor = RpcEndpointHelper.GetLocalTcpEndpoint();
+            var localRpcEndpointDescriptor = SilkyEndpointHelper.GetLocalRpcEndpoint();
             rpcContext.SetInvokeAttachment(AttachmentKeys.ClientHost, localRpcEndpointDescriptor.Host);
-            rpcContext.SetInvokeAttachment(AttachmentKeys.ClientServiceProtocol, localRpcEndpointDescriptor.ServiceProtocol);
-            rpcContext.SetInvokeAttachment(AttachmentKeys.ClientPort, localRpcEndpointDescriptor.Port);
+            rpcContext.SetInvokeAttachment(AttachmentKeys.ClientServiceProtocol, localRpcEndpointDescriptor.ServiceProtocol.ToString());
+            rpcContext.SetInvokeAttachment(AttachmentKeys.ClientPort, localRpcEndpointDescriptor.Port.ToString());
             if (RpcContext.Context.GetLocalHost().IsNullOrEmpty())
             {
                 RpcContext.Context.SetInvokeAttachment(AttachmentKeys.LocalAddress, localRpcEndpointDescriptor.Host);
-                RpcContext.Context.SetInvokeAttachment(AttachmentKeys.LocalPort, localRpcEndpointDescriptor.Port);
+                RpcContext.Context.SetInvokeAttachment(AttachmentKeys.LocalPort, localRpcEndpointDescriptor.Port.ToString());
                 RpcContext.Context.SetInvokeAttachment(AttachmentKeys.LocalServiceProtocol,
-                    localRpcEndpointDescriptor.ServiceProtocol);
+                    localRpcEndpointDescriptor.ServiceProtocol.ToString());
             }
         }
         

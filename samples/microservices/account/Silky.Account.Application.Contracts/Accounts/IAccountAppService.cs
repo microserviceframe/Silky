@@ -1,7 +1,6 @@
 using System.Threading.Tasks;
 using Silky.Account.Application.Contracts.Accounts.Dtos;
 using Microsoft.AspNetCore.Mvc;
-using Silky.Rpc.CachingInterceptor;
 using Silky.Rpc.Routing;
 using Silky.Rpc.Runtime.Server;
 using Silky.Rpc.Security;
@@ -13,6 +12,7 @@ namespace Silky.Account.Application.Contracts.Accounts
     /// 账号服务
     /// </summary>
     [ServiceRoute]
+    [Authorize]
     public interface IAccountAppService
     {
         /// <summary>
@@ -30,9 +30,6 @@ namespace Silky.Account.Application.Contracts.Accounts
         [AllowAnonymous]
         Task<string> Login(LoginInput input);
         
-        [AllowAnonymous]
-        [HttpPost("dashboard/login")]
-        Task<string> DashboardLogin(DashboardLoginInput input);
 
         /// <summary>
         /// 获取当前登陆用户
@@ -47,18 +44,18 @@ namespace Silky.Account.Application.Contracts.Accounts
         /// </summary>
         /// <param name="name">账号名称</param>
         /// <returns></returns>
-        [GetCachingIntercept("Account:UserName:{0}")]
+        [GetCachingIntercept("Account:UserName:{name}")]
         [HttpGet("{name}")]
-        Task<GetAccountOutput> GetAccountByName([CacheKey(0)] string name);
+        Task<GetAccountOutput> GetAccountByName(string name);
 
         /// <summary>
         /// 通过Id获取账号信息
         /// </summary>
         /// <param name="id">账号Id</param>
         /// <returns></returns>
-        [GetCachingIntercept("Account:Id:{0}")]
+        [GetCachingIntercept("Account:Id:{id}")]
         [HttpGet("{id:long}")]
-        Task<GetAccountOutput> GetAccountById([CacheKey(0)] long id);
+        Task<GetAccountOutput> GetAccountById(long id);
 
         /// <summary>
         /// 更新账号信息
@@ -73,9 +70,9 @@ namespace Silky.Account.Application.Contracts.Accounts
         /// </summary>
         /// <param name="id">账号Id</param>
         /// <returns></returns>
-        [RemoveCachingIntercept("GetAccountOutput","Account:Id:{0}")]
+        [RemoveCachingIntercept("GetAccountOutput","Account:Id:{id}")]
         [HttpDelete("{id:long}")]
-        Task Delete([CacheKey(0)]long id);
+        Task Delete(long id);
 
         /// <summary>
         /// 订单扣款
@@ -83,7 +80,7 @@ namespace Silky.Account.Application.Contracts.Accounts
         /// <param name="input"></param>
         /// <returns></returns>
         [Governance(ProhibitExtranet = true)]
-        [RemoveCachingIntercept("GetAccountOutput","Account:Id:{0}")]
+        [RemoveCachingIntercept("GetAccountOutput","Account:Id:{AccountId}")]
         [Transaction]
         Task<long?> DeductBalance(DeductBalanceInput input);
     }

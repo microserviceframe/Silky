@@ -23,12 +23,14 @@ namespace ITestApplication.Test
         /// </summary>
         /// <param name="input"></param>
         /// <returns></returns>
-        [GetCachingIntercept("name:{0}")]
         //[UnitOfWork]
         // [Fallback(typeof(ICreateFallback))]
         //  [Authorize(Roles = "Administrator, PowerUser")]
         [TestClientFilter(1)]
-        Task<TestOut> Create(TestInput input);
+        [HttpPost]
+        [HttpPut]
+        [UpdateCachingIntercept("id:{id}")]
+        Task<TestOut> CreateOrUpdateAsync(TestInput input);
 
         // [HttpPost]
         // [HttpPut]
@@ -36,24 +38,30 @@ namespace ITestApplication.Test
 
         [AllowAnonymous]
         [HttpGet("{id:long}")]
-        Task<TestOut> Get(long id);
+        [GetCachingIntercept("id:{id}")]
+        Task<TestOut> Get( /*[CacheKey(0)]*/ long id);
 
         [Obsolete]
-        [HttpPut]
-        Task<string> Update(TestInput input);
+        [HttpPut("modify")]
+        [RemoveCachingIntercept(typeof(TestOut), "id:{Id}")]
+        Task<TestOut> Update(TestInput input);
 
-        [RemoveCachingIntercept("ITestApplication.Test.Dtos.TestOut", "name:{0}")]
-        [Transaction]
+        [RemoveCachingIntercept("ITestApplication.Test.Dtos.TestOut", "id:{0}")]
         [Governance(RetryTimes = 2)]
         [HttpDelete]
-        Task<string> DeleteAsync(TestInput input);
+        Task<string> DeleteAsync([CacheKey(0)] long id);
 
         [HttpGet]
-        Task<string> Search([FromQuery] TestInput query);
+        Task<PagedList<TestOut>> Search1([FromQuery] string name, [FromQuery] string address,
+            [FromQuery] int pageIndex = 1,
+            [FromQuery] int pageSize = 10);
+
+        [HttpGet]
+        Task<PagedList<TestOut>> Search2([FromQuery] SearchInput query);
 
         [HttpPost]
         [HttpPut]
-        string Form([FromForm] TestInput query);
+        Task<TestOut> Form([FromForm] TestInput input);
 
         [HttpGet("{name}")]
         [Governance(ShuntStrategy = ShuntStrategy.HashAlgorithm)]
@@ -70,7 +78,8 @@ namespace ITestApplication.Test
 
         [HttpPatch]
         [Fallback(typeof(IUpdatePartFallBack))]
-        Task<string> UpdatePart(TestInput input);
+        [RemoveCachingIntercept(typeof(TestOut), "id:{Id}")]
+        Task<TestOut> UpdatePart(TestUpdatePart input);
 
         Task<IList<object>> GetObjectList();
 

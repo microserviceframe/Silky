@@ -87,13 +87,13 @@ namespace Silky.Rpc.SkyApm.Configuration
             {
                 if (EngineContext.Current.ContainModule("DotNettyTcp"))
                 {
-                    var address = RpcEndpointHelper.GetLocalTcpEndpoint().GetAddress();
+                    var address = SilkyEndpointHelper.GetLocalRpcEndpoint().GetAddress();
                     return $"{address}";
                 }
 
                 if (EngineContext.Current.IsContainHttpCoreModule())
                 {
-                    var hostAddress = RpcEndpointHelper.GetLocalAddress();
+                    var hostAddress = SilkyEndpointHelper.GetLocalAddress();
                     var instanceName = $"{hostAddress}@webhost";
                     return instanceName;
                 }

@@ -6,11 +6,11 @@ public class CachingInterceptorDescriptor
 {
     public CachingInterceptorDescriptor()
     {
-        CacheKeyProviders = new List<CacheKeyProviderDescriptor>();
+        CacheKeyProviderDescriptors = new List<CacheKeyProviderDescriptor>();
         IsRemoveMatchKeyProvider = false;
     }
 
-    public string KeyTemplete { get; set;}
+    public string KeyTemplate { get; set;}
 
     public bool OnlyCurrentUserData { get; set; }
 
@@ -22,5 +22,7 @@ public class CachingInterceptorDescriptor
 
     public bool IsRemoveMatchKeyProvider { get; set; }
 
-    public ICollection<CacheKeyProviderDescriptor> CacheKeyProviders { get; set; }
+    public ICollection<CacheKeyProviderDescriptor> CacheKeyProviderDescriptors { get; set; }
+    
+    public bool? IgnoreWhenCacheKeyNull { get; set; }
 }

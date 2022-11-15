@@ -5,7 +5,7 @@ namespace Silky.Core.Runtime.Rpc
 {
     public enum ServiceProtocol
     {
-        Tcp,
+        Rpc,
         Mqtt,
         Ws,
         Wss,
@@ -28,9 +28,9 @@ namespace Silky.Core.Runtime.Rpc
                 serviceProtocol = ServiceProtocol.Https;
             }
 
-            else if ("tcp".Equals(scheme, StringComparison.OrdinalIgnoreCase))
+            else if ("rpc".Equals(scheme, StringComparison.OrdinalIgnoreCase))
             {
-                serviceProtocol = ServiceProtocol.Tcp;
+                serviceProtocol = ServiceProtocol.Rpc;
             }
             else if ("ws".Equals(scheme, StringComparison.OrdinalIgnoreCase))
             {
@@ -67,9 +67,9 @@ namespace Silky.Core.Runtime.Rpc
             return serviceProtocol == ServiceProtocol.Ws || serviceProtocol == ServiceProtocol.Wss;
         }
 
-        public static bool IsTcp(this ServiceProtocol serviceProtocol)
+        public static bool IsRpc(this ServiceProtocol serviceProtocol)
         {
-            return serviceProtocol == ServiceProtocol.Tcp;
+            return serviceProtocol == ServiceProtocol.Rpc;
         }
 
         public static bool IsMqtt(this ServiceProtocol serviceProtocol)

@@ -7,7 +7,8 @@ using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Silky.Http.Core.Middlewares;
+using Silky.Http.Core;
+using Silky.Http.MiniProfiler;
 
 
 namespace GatewayDemo
@@ -24,27 +25,21 @@ namespace GatewayDemo
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            // services.AddSwaggerDocuments();
-            // services.AddSilkyMiniProfiler();
-            // // services.AddDashboard();
-            // services.AddSilkyIdentity();
-            // services.AddSilkySkyApm();
-            // services.AddRouting();
-            // services.AddMessagePackCodec();
-            // var redisOptions = Configuration.GetRateLimitRedisOptions();
-            // services.AddClientRateLimit(redisOptions);
-            // services.AddIpRateLimit(redisOptions);
-            // services.AddResponseCaching();
-            // services.AddMvc();
-            // services.AddSilkyHttpCore();
-            // services.AddTransient<IAuthorizationHandler, TestAuthorizationHandlerBase>();
             services.AddSilkySkyApm();
+            
+            // services
+            //     .AddSilkyHttpCore()
+            //     .AddDashboard()
+            //     .AddResponseCaching()
+            //     .AddHttpContextAccessor()
+            //     .AddRouting()
+            //     .AddSilkyIdentity<TestAuthorizationHandler>()
+            //     .AddSilkyMiniProfiler()
+            //     .AddSwaggerDocuments();
+
             services.AddSilkyHttpServices<TestAuthorizationHandler>();
-            services.AddSilkyIdentity();
-            // services.AddMessagePackCodec();
-            // services.AddHealthChecks()
-            //     .AddSilkyRpc()
-            //     .AddSilkyGateway();
+            
+            services.AddCorsAccessor();
 
             services.Configure<GzipCompressionProviderOptions>(options => options.Level = CompressionLevel.Fastest);
             services.AddResponseCompression(options =>
@@ -84,17 +79,19 @@ namespace GatewayDemo
             // app.UseClientRateLimiting();
             // app.UseIpRateLimiting();
             app.UseResponseCaching();
-            app.UseHttpsRedirection();
-            app.UseSilkyIdentity();
+            // app.UseHttpsRedirection();
             app.UseSilkyWebSocketsProxy();
-            app.UseSilkyWebServer();
+            // app.UseSilkyWebServer();
             app.UseSilkyWrapperResponse();
-            // app.UseAuditing();
+            app.UseSilkyIdentity();
+            app.UseAuditing();
             app.UseEndpoints(endpoints =>
             {
                 //endpoints.MapHealthChecksUI();
                 endpoints.MapSilkyRpcServices();
-                //endpoints.MapSilkyTemplateServices();
+                // endpoints.MapSilkyServiceEntries();
+                // endpoints.MapSilkyTemplateServices();
+                // endpoints.MapSilkyDashboardServices();
             });
         }
     }

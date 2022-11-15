@@ -2,12 +2,14 @@
   <PropertyGroup>
 
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
-
+    
+    <Nullable>enable</Nullable>
+    
     <License>MIT</License>
 
     <LicenseUrl>https://raw.githubusercontent.com/liuhll/silky/main/LICENSE</LicenseUrl>
 
-    <Version>3.2.2</Version>
+    <Version>3.4.1-bate9</Version>
 
     <PackageIconUrl>https://raw.githubusercontent.com/liuhll/silky/main/docs/.vuepress/public/assets/logo/logo.png</PackageIconUrl>
 
@@ -16,11 +18,15 @@
     <PackageTags>silky;micro-service;rpc;distributed-transactions;tcc-transaction</PackageTags>
 
     <RepositoryType>Github</RepositoryType>
-	
-	<EfCore6Version>6.0.0</EfCore6Version>
-	
-	<EfCore5Version>5.0.7</EfCore5Version>
 
-    <DotNettyVersion>0.7.4</DotNettyVersion>
+    <EfCore7Version>7.0.0</EfCore7Version>
+    
+	<EfCore6Version>6.0.10</EfCore6Version>
+	
+	<EfCore5Version>5.0.17</EfCore5Version>
+
+    <DotNettyVersion>0.7.5</DotNettyVersion>
+
+    <MassTransitVersion>8.0.7</MassTransitVersion>
   </PropertyGroup>
 </Project>

@@ -17,6 +17,7 @@ using Silky.Rpc.Utils;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
+using Silky.Core.Reflection;
 using Silky.Core.Runtime.Rpc;
 using Silky.Rpc.Endpoint;
 using WebSocketSharp.Server;
@@ -57,7 +58,7 @@ namespace Silky.WebSocket
         {
             var webSocketOptions = privider.Resolve<IOptions<WebSocketOptions>>().Value;
             var hostEnvironment = privider.Resolve<IHostEnvironment>();
-            var wsAddressModel = RpcEndpointHelper.GetRpcEndpoint(webSocketOptions.Port, ServiceProtocol.Ws);
+            var wsAddressModel = SilkyEndpointHelper.GetEndpoint(webSocketOptions.Port, ServiceProtocol.Ws);
             WebSocketServer socketServer = null;
             if (webSocketOptions.IsSsl)
             {
@@ -76,17 +77,17 @@ namespace Silky.WebSocket
             return socketServer;
         }
 
-        public override async Task Initialize(ApplicationContext applicationContext)
+        public override async Task Initialize(ApplicationInitializationContext context)
         {
-            var typeFinder = applicationContext.ServiceProvider.GetRequiredService<ITypeFinder>();
+            var typeFinder = context.ServiceProvider.GetRequiredService<ITypeFinder>();
             var webSocketServices = GetWebSocketServices(typeFinder);
             var webSocketServerBootstrap =
-                applicationContext.ServiceProvider.GetRequiredService<WebSocketServerBootstrap>();
+                context.ServiceProvider.GetRequiredService<WebSocketServerBootstrap>();
             webSocketServerBootstrap.Initialize(webSocketServices);
-            var serviceRouteRegisterProvider =
-                applicationContext.ServiceProvider.GetRequiredService<IServerProvider>();
+            var serverProvider =
+                context.ServiceProvider.GetRequiredService<IServerProvider>();
 
-            serviceRouteRegisterProvider.AddWsServices();
+            serverProvider.AddWsServices();
         }
 
         private (Type, string)[] GetWebSocketServices(ITypeFinder typeFinder)

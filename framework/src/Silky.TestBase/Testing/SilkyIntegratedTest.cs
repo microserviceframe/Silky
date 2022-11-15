@@ -8,11 +8,12 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Moq;
+using Silky.Core.Configuration;
 
 namespace Silky.TestBase.Testing
 {
     public abstract class SilkyIntegratedTest<TStartupModule> : SilkyTestBaseWithServiceProvider, IDisposable
-        where TStartupModule : StartUpModule
+        where TStartupModule : SilkyModule
     {
         protected IServiceScope TestServiceScope { get; }
 
@@ -30,7 +31,8 @@ namespace Silky.TestBase.Testing
             var hostEnvironment = CreateHostEnvironment();
             services.AddSingleton(Configuration);
 
-            Engine = services.AddSilkyServices<TStartupModule>(Configuration, hostEnvironment);
+            Engine = services.AddSilkyServices<TStartupModule>(Configuration, hostEnvironment,
+                new SilkyApplicationCreationOptions(services));
 
             AfterAddApplication(services);
 

@@ -16,15 +16,16 @@ namespace Silky.Rpc.Transport
 {
     public class DefaultTransportClient : ITransportClient
     {
-        private static ConcurrentDictionary<string, TaskCompletionSource<TransportMessage>> m_resultDictionary = new();
-        protected readonly IMessageSender _messageSender;
-        protected readonly IMessageListener _messageListener;
+        private ConcurrentDictionary<string, TaskCompletionSource<TransportMessage>> m_resultDictionary = new();
 
         public ILogger<DefaultTransportClient> Logger { get; set; }
 
+        public IMessageSender MessageSender { get; set; }
+        private readonly IMessageListener _messageListener;
+
         public DefaultTransportClient(IMessageSender messageSender, IMessageListener messageListener)
         {
-            _messageSender = messageSender;
+            MessageSender = messageSender;
             _messageListener = messageListener;
             _messageListener.Received += MessageListenerOnReceived;
             Logger = EngineContext.Current.Resolve<ILogger<DefaultTransportClient>>() ??
@@ -33,10 +34,8 @@ namespace Silky.Rpc.Transport
 
         private async Task MessageListenerOnReceived(IMessageSender sender, TransportMessage message)
         {
-            TaskCompletionSource<TransportMessage> task;
-            if (!m_resultDictionary.TryGetValue(message.Id, out task))
+            if (!m_resultDictionary.TryGetValue(message.Id, out var task))
                 return;
-            Debug.Assert(message.IsResultMessage(), "The message type received by the service consumer is incorrect");
             task.SetResult(message);
         }
 
@@ -53,7 +52,7 @@ namespace Silky.Rpc.Transport
                 "messageId:[{1}],serviceEntryId:[{2}]", Environment.NewLine, transportMessage.Id,
                 message.ServiceEntryId);
 
-            await _messageSender.SendMessageAsync(transportMessage);
+            await MessageSender.SendMessageAsync(transportMessage);
             return await callbackTask;
         }
 
@@ -90,15 +89,8 @@ namespace Silky.Rpc.Transport
 
             if (remoteResultMessage.StatusCode == StatusCode.ValidateError)
             {
-                var validateException = new ValidationException(remoteResultMessage.ExceptionMessage);
-                if (remoteResultMessage.ValidateErrors != null)
-                {
-                    foreach (var validateError in remoteResultMessage.ValidateErrors)
-                    {
-                        validateException.WithValidationError(validateError.ErrorMessage,
-                            validateError.MemberNames);
-                    }
-                }
+                var validateException = new ValidationException(remoteResultMessage.ExceptionMessage,remoteResultMessage.ValidateErrors);
+                
 
                 throw validateException;
             }

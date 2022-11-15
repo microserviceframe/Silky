@@ -10,7 +10,7 @@ using Silky.Http.RateLimit;
 using Silky.Http.Swagger;
 using Silky.Rpc.CachingInterceptor;
 using Silky.Rpc.Proxy;
-using Silky.Rpc.Monitor;
+using Silky.Swagger.Gen;
 using Silky.Transaction.Repository.Redis;
 using Silky.Transaction.Tcc;
 using Silky.Validation;
@@ -20,7 +20,7 @@ namespace Microsoft.Extensions.Hosting
     [DependsOn(
         typeof(DotNettyTcpModule),
         typeof(RpcProxyModule),
-        typeof(RpcMonitorModule),
+        // typeof(RpcMonitorModule),
         typeof(SilkyHttpCoreModule),
         typeof(SwaggerModule),
         typeof(MiniProfilerModule),
@@ -32,9 +32,11 @@ namespace Microsoft.Extensions.Hosting
         typeof(FluentValidationModule),
         typeof(RedisCachingModule),
         typeof(TransactionTccModule),
-        typeof(RedisTransactionRepositoryModule)
+        typeof(RedisTransactionRepositoryModule),
+        typeof(SwaggerGenModule)
     )]
-    public abstract class WebHostModule : StartUpModule
+    public abstract class WebHostModule : HostAgentModule
     {
+        
     }
 }

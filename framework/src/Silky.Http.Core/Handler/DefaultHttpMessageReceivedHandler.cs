@@ -20,7 +20,7 @@ using Silky.Rpc.Runtime.Server;
 
 namespace Silky.Http.Core.Handlers
 {
-    internal class DefaultHttpMessageReceivedHandler : MessageReceivedHandlerBase
+    internal sealed class DefaultHttpMessageReceivedHandler : MessageReceivedHandlerBase
     {
         private readonly IHttpExecutor _executor;
         private readonly IParameterParser _parameterParser;
@@ -50,7 +50,7 @@ namespace Silky.Http.Core.Handlers
             var parameters =
                 await _parameterParser.Parser(httpContext.Request, serviceEntry);
             RpcContext.Context.SetRequestParameters(_auditSerializer.Serialize(parameters));
-            var serviceKey = await ResolveServiceKey(httpContext);
+            var serviceKey = ResolveServiceKey(httpContext);
             if (!serviceKey.IsNullOrEmpty())
             {
                 RpcContext.Context.SetServiceKey(serviceKey);
@@ -69,13 +69,11 @@ namespace Silky.Http.Core.Handlers
                 _httpHandleDiagnosticListener.TracingBefore(messageId, serviceEntry,
                     httpContext,
                     parameters);
-            object executeResult = null;
             var isHandleSuccess = true;
             var isFriendlyStatus = false;
             try
             {
-                executeResult =
-                    await _executor.Execute(serviceEntry, parameters, serviceKey);
+                var executeResult = await _executor.Execute(serviceEntry, parameters, serviceKey);
                 var cancellationToken = serverCallContext.HttpContext.RequestAborted;
                 if (!serverCallContext.HttpContext.Response.HasStarted && !cancellationToken.IsCancellationRequested)
                 {
@@ -92,11 +90,10 @@ namespace Silky.Http.Core.Handlers
                         if (executeResult != null)
                         {
                             var responseData = _serializer.Serialize(executeResult);
-                            await serverCallContext.HttpContext.Response.WriteAsync(responseData);
+                            await serverCallContext.HttpContext.Response.WriteAsync(responseData, cancellationToken: cancellationToken);
                         }
                     }
                 }
-
                 _httpHandleDiagnosticListener.TracingAfter(tracingTimestamp, messageId,
                     serviceEntry,
                     httpContext,
@@ -134,10 +131,11 @@ namespace Silky.Http.Core.Handlers
             HttpContextServerCallContext serverCallContext,
             ServiceEntryDescriptor serviceEntryDescriptor)
         {
+            
             var sp = Stopwatch.StartNew();
             var parameters =
                 await _parameterParser.Parser(httpContext.Request, serviceEntryDescriptor);
-            var serviceKey = await ResolveServiceKey(httpContext);
+            var serviceKey = ResolveServiceKey(httpContext);
             if (!serviceKey.IsNullOrEmpty())
             {
                 RpcContext.Context.SetServiceKey(serviceKey);
@@ -145,20 +143,16 @@ namespace Silky.Http.Core.Handlers
                     MiniProfileConstant.Route.State.FindServiceKey,
                     $"serviceKey => {serviceKey}");
             }
-
-            var rpcConnection = RpcContext.Context.Connection;
-            var clientRpcEndpoint = rpcConnection.ClientHost;
+            
+            var clientRpcEndpoint = RpcContext.Context.Connection.ClientHost;
             var serverHandleMonitor = EngineContext.Current.Resolve<IServerHandleMonitor>();
-            var messageId = GetMessageId(httpContext);
             var serverHandleInfo =
                 serverHandleMonitor?.Monitor((serverCallContext.ServiceEntryDescriptor.Id, clientRpcEndpoint));
-            object executeResult = null;
             var isHandleSuccess = true;
             var isFriendlyStatus = false;
             try
             {
-                executeResult =
-                    await _executor.Execute(serviceEntryDescriptor, parameters, serviceKey);
+                var executeResult = await _executor.Execute(serviceEntryDescriptor, parameters, serviceKey);
                 var cancellationToken = serverCallContext.HttpContext.RequestAborted;
                 if (!serverCallContext.HttpContext.Response.HasStarted && !cancellationToken.IsCancellationRequested)
                 {
@@ -166,7 +160,7 @@ namespace Silky.Http.Core.Handlers
                     if (executeResult != null)
                     {
                         var responseData = _serializer.Serialize(executeResult);
-                        await serverCallContext.HttpContext.Response.WriteAsync(responseData);
+                        await serverCallContext.HttpContext.Response.WriteAsync(responseData, cancellationToken: cancellationToken);
                     }
                 }
             }
@@ -194,18 +188,15 @@ namespace Silky.Http.Core.Handlers
             }
         }
 
-        protected virtual Task<string> ResolveServiceKey(HttpContext httpContext)
+        private string ResolveServiceKey(HttpContext httpContext)
         {
-            return Task.Factory.StartNew(() =>
+            string serviceKey = null;
+            if (httpContext.Request.Headers.ContainsKey("serviceKey"))
             {
-                string serviceKey = null;
-                if (httpContext.Request.Headers.ContainsKey("serviceKey"))
-                {
-                    serviceKey = httpContext.Request.Headers["serviceKey"].ToString();
-                }
+                serviceKey = httpContext.Request.Headers["serviceKey"].ToString();
+            }
 
-                return serviceKey;
-            });
+            return serviceKey;
         }
 
 

@@ -2,12 +2,11 @@ src/Silky.Agent.Host
 src/Silky.Caching
 src/Silky.Caching.StackExchangeRedis
 src/Silky.Castle
-src/Silky.Codec.MessagePack
-src/Silky.Codec.ProtoBuf
 src/Silky.Core
 src/Silky.DotNetty.Abstraction
 src/Silky.DotNetty.Protocol.Tcp
 src/Silky.EntityFrameworkCore
+src/Silky.EntityFrameworkCore.Extras
 src/Silky.HealthChecks.Rpc
 src/Silky.Http.Auditing
 src/Silky.Http.Core
@@ -35,7 +34,8 @@ src/Silky.SkyApm.Diagnostics.Abstraction
 src/Silky.SkyApm.Diagnostics.Rpc
 src/Silky.SkyApm.Diagnostics.Http
 src/Silky.SkyApm.Diagnostics.Transaction
-src/Silky.Swagger
+src/Silky.Swagger.Abstraction
+src/Silky.Swagger.Gen
 src/Silky.TestBase
 src/Silky.Transaction
 src/Silky.Transaction.Abstraction
@@ -45,3 +45,4 @@ src/Silky.Validation
 src/Silky.Validation.Fluent
 src/Silky.WebSocket
 src/Silky.Zookeeper
+src/Silky.MassTransit

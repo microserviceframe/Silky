@@ -132,6 +132,7 @@ document.write('<script src="' + src + '" id="sozz"><\/script>');
             { text: '首页', link: '/' },
             { text: '文档', link: '/silky/' },
             { text: '配置', link: '/config/' },
+            { text: '源码解析', link: '/source/' },
             { text: '博文', link: '/blog/' },
             {
                 text: 'github', link: 'https://github.com/liuhll/silky'
@@ -191,6 +192,24 @@ document.write('<script src="' + src + '" id="sozz"><\/script>');
                 },
 
             ],
+            '/source/': [{
+                title: '启动时',
+                collapsable: false,
+                children: [
+                    'startup/host',
+                    'startup/engine',
+                    'startup/modularity',
+                    'startup/service-serviceentry',
+                    'startup/server'
+                ]
+            },
+            {
+                title: '运行时',
+                collapsable: false,
+                children: [
+                    'runtime/routing'
+                ]
+            }],
             '/config/': [
                 {
                     collapsable: false,
